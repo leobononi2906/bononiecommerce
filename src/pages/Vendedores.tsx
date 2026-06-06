@@ -7,8 +7,9 @@ import { PeriodSelector } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, fmtMinutes, shortName } from '../lib/fmt'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 
-export default function Vendedores() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+interface Props { periodo: Periodo }
+
+export default function Vendedores({ periodo }: Props) {
   const { data: vendedores, loading: lvend } = useVendedores(periodo)
   const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: umblerVend } = useUmblerVendedores()
@@ -67,7 +68,7 @@ export default function Vendedores() {
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
-      <PageHeader title="Vendedores"><PeriodSelector value={periodo} onChange={setPeriodo} />
+      <PageHeader title="Vendedores">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--text-hint)' }}>
             Atualizado às {lastRefresh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
