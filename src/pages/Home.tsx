@@ -12,7 +12,7 @@ import type { Periodo } from '../types'
 
 export default function Home() {
   const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
-  const { data: vendedores, loading: lvend } = useVendedores()
+  const { data: vendedores, loading: lvend } = useVendedores(periodo)
   const { data: subgrupos, loading: lsub } = useSubgrupos(periodo)
   const { data: leads, loading: lleads } = useLeads(periodo)
   const { data: fatRaw, loading: lfat } = useFaturamento6Meses()
