@@ -14,7 +14,7 @@ export default function Marketplace() {
   const kpis = useMemo(() => {
     if (!mkt) return null
     const bruto    = mkt.reduce((s, r) => s + r.faturamento_bruto, 0)
-    const taxa     = mkt.reduce((s, r) => s + r.taxa_marketplace, 0)
+    const taxa     = mkt.reduce((s, r) => s + (r.taxa_total ?? r.taxa_marketplace ?? 0), 0)
     const liquido  = mkt.reduce((s, r) => s + r.faturamento_liquido, 0)
     const custo    = mkt.reduce((s, r) => s + r.custo_total, 0)
     const margem   = liquido > 0 ? ((liquido - custo) / liquido) * 100 : 0
@@ -62,7 +62,7 @@ export default function Marketplace() {
       <SectionLabel>KPIs marketplace</SectionLabel>
       <KpiGrid cols={4}>
         <KpiCard label="Fat. bruto" value={fmtBRL(kpis?.bruto)} highlight />
-        <KpiCard label="Taxa (~22%)" value={fmtBRL(kpis?.taxa)} sub="Custo do canal" trend="down" />
+        <KpiCard label="Taxa canal" value={fmtBRL(kpis?.taxa)} sub="Custo do canal" trend="down" />
         <KpiCard label="Fat. líquido" value={fmtBRL(kpis?.liquido)} trend="up" />
         <KpiCard label="Margem líquida" value={fmtPct(kpis?.margem)} trend={kpis && kpis.margem >= 25 ? 'up' : 'down'} />
       </KpiGrid>
