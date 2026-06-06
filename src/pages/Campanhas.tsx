@@ -1,3 +1,4 @@
+import type { Periodo } from '../types'
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend } from 'recharts'
 import { useCampanhas, useMetaAds, useCampanhaSubgrupos } from '../hooks/useData'
@@ -5,7 +6,6 @@ import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../compo
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { PeriodSelector } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/fmt'
-import type { Periodo } from '../types'
 
 // Shorten long campaign names
 function shortCamp(name: string, maxLen = 30): string {
@@ -13,8 +13,9 @@ function shortCamp(name: string, maxLen = 30): string {
   return clean.length > maxLen ? clean.slice(0, maxLen) + '…' : clean
 }
 
-export default function Campanhas() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+interface Props { periodo: Periodo }
+
+export default function Campanhas({ periodo }: Props) {
   const { data: campanhas, loading: lcamp } = useCampanhas(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
   const { data: campSubgrupos } = useCampanhaSubgrupos()
@@ -88,7 +89,7 @@ export default function Campanhas() {
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
       <PageHeader title="Campanhas Meta Ads">
-        <PeriodSelector value={periodo} onChange={setPeriodo} />
+        
       </PageHeader>
 
       <SectionLabel>Performance geral</SectionLabel>
