@@ -54,7 +54,8 @@ export interface EcomMarketplace {
   nome_vendedor: string
   id_vendedor: number
   faturamento_bruto: number
-  taxa_marketplace: number
+  taxa_marketplace: number  // maps to taxa_total in vw_ecom_marketplace
+  taxa_total?: number
   faturamento_liquido: number
   custo_total: number
   margem_liquida: number
