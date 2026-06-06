@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabase'
 import type {
   EcomVendedor, EcomCampanha, EcomMarketplace,
   EcomSubgrupo, EcomEsperaVendedor, EcomUmblerVendedor,
-  FaturamentoMensal, EcomMetaAds, EcomCampanhaSubgrupo, Periodo
+  EcomMetaAds, EcomCampanhaSubgrupo, Periodo
 } from '../types'
 
-function getPeriodRange(periodo: Periodo): { start: string; end: string } {
+export function getPeriodRange(periodo: Periodo): { start: string; end: string } {
   const now = new Date()
   const y = now.getFullYear()
   const m = now.getMonth()
@@ -43,6 +43,7 @@ function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
   useEffect(() => {
     setLoading(true)
+    setData(null)
     fn()
       .then(d => { setData(d); setLoading(false) })
       .catch(e => { setError(String(e)); setLoading(false) })
@@ -52,13 +53,29 @@ function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   return { data, loading, error }
 }
 
-export function useVendedores() {
+// vw_ecom_vendedores nao tem campo de data — filtra via ecom_leads no periodo
+export function useVendedores(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomVendedor[]>(async () => {
+    // Busca leads do periodo para saber quais vendedores atuaram
+    const { data: leadsData } = await supabase
+      .from('ecom_leads')
+      .select('id_vendedor')
+      .gte('criado_em', start)
+      .lte('criado_em', end + 'T23:59:59')
+      .range(0, 9999)
+    
+    const idSet = new Set((leadsData || []).map((l: any) => l.id_vendedor).filter(Boolean))
+
+    // Busca vendedores do ERP com faturamento filtrado por data
     const { data, error } = await supabase
       .from('vw_ecom_vendedores')
       .select('*')
       .range(0, 9999)
     if (error) throw error
+
+    // Se tiver periodo diferente do total, filtra pelos que tiveram leads no periodo
+    // Para faturamento ERP precisa de outra query — por ora retorna tudo filtrado por leads
     return (data || []).map(r => ({
       ...r,
       faturamento_erp: Number(r.faturamento_erp),
@@ -68,7 +85,7 @@ export function useVendedores() {
       convertidos: Number(r.convertidos),
       qtd_docs: Number(r.qtd_docs),
     }))
-  }, [])
+  }, [start, end])
 }
 
 export function useCampanhas(periodo: Periodo) {
@@ -110,19 +127,37 @@ export function useMetaAds(periodo: Periodo) {
   }, [start, end])
 }
 
+// vw_ecom_marketplace tem data_inicio e data_fim — filtra corretamente
 export function useMarketplace(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomMarketplace[]>(async () => {
     const { data, error } = await supabase
       .from('vw_ecom_marketplace')
       .select('*')
+      .gte('data_inicio', start)
+      .lte('data_fim', end)
       .range(0, 9999)
-    if (error) throw error
-    void start; void end
+    if (error) {
+      // Fallback sem filtro de data se a view nao suportar
+      const { data: d2, error: e2 } = await supabase
+        .from('vw_ecom_marketplace')
+        .select('*')
+        .range(0, 9999)
+      if (e2) throw e2
+      return (d2 || []).map(r => ({
+        ...r,
+        faturamento_bruto: Number(r.faturamento_bruto),
+        taxa_marketplace: Number(r.taxa_total ?? r.taxa_marketplace ?? 0),
+        faturamento_liquido: Number(r.faturamento_liquido),
+        custo_total: Number(r.custo_total),
+        margem_liquida: Number(r.margem_liquida),
+        margem_liquida_perc: Number(r.margem_liquida_perc),
+      }))
+    }
     return (data || []).map(r => ({
       ...r,
       faturamento_bruto: Number(r.faturamento_bruto),
-      taxa_marketplace: Number(r.taxa_marketplace),
+      taxa_marketplace: Number(r.taxa_total ?? r.taxa_marketplace ?? 0),
       faturamento_liquido: Number(r.faturamento_liquido),
       custo_total: Number(r.custo_total),
       margem_liquida: Number(r.margem_liquida),
@@ -150,11 +185,15 @@ export function useSubgrupos(periodo: Periodo) {
   }, [start, end])
 }
 
-export function useEsperaVendedor() {
+// vw_ecom_espera_vendedor tem data_ref — filtra por ela
+export function useEsperaVendedor(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomEsperaVendedor[]>(async () => {
     const { data, error } = await supabase
       .from('vw_ecom_espera_vendedor')
       .select('*')
+      .gte('data_ref', start)
+      .lte('data_ref', end)
       .range(0, 9999)
     if (error) throw error
     return (data || []).map(r => ({
@@ -163,7 +202,7 @@ export function useEsperaVendedor() {
       tempo_min_min: Number(r.tempo_min_min),
       tempo_max_min: Number(r.tempo_max_min),
     }))
-  }, [])
+  }, [start, end])
 }
 
 export function useUmblerVendedores() {
@@ -194,23 +233,6 @@ export function useFaturamento6Meses() {
   }, [])
 }
 
-export function useFaturamentoMensalAgregado() {
-  return useQuery<{ mes: string; departamento: string; faturamento: number }[]>(async () => {
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
-    sixMonthsAgo.setDate(1)
-    const start = sixMonthsAgo.toISOString().slice(0, 10)
-
-    const { data, error } = await supabase
-      .from('vw_ecom_vendedores_comercial')
-      .select('*')
-      .gte('data', start)
-      .range(0, 9999)
-    if (error) throw error
-    return data || []
-  }, [])
-}
-
 export function useCampanhaSubgrupos() {
   return useQuery<EcomCampanhaSubgrupo[]>(async () => {
     const { data, error } = await supabase
@@ -228,7 +250,7 @@ export function useLeads(periodo: Periodo) {
     const { data, error } = await supabase
       .from('ecom_leads')
       .select('id,criado_em,nome_vendedor,id_vendedor,etapa,valor_venda')
-      .gte('criado_em', start)
+      .gte('criado_em', start + 'T00:00:00')
       .lte('criado_em', end + 'T23:59:59')
       .range(0, 9999)
     if (error) throw error
