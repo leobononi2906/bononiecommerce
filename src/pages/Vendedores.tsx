@@ -10,7 +10,7 @@ import { RefreshCw, AlertTriangle } from 'lucide-react'
 interface Props { periodo: Periodo }
 
 export default function Vendedores({ periodo }: Props) {
-  const { data: vendedores, loading: lvend } = useVendedores(periodo)
+  const { data: vendedores, loading: lvend } = useVendedores()
   const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: umblerVend } = useUmblerVendedores()
   const [lastRefresh, setLastRefresh] = useState(new Date())
