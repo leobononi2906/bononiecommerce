@@ -13,7 +13,7 @@ const HORAS = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h']
 export default function Atendimento() {
   const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
   const { data: leads, loading: lleads } = useLeads(periodo)
-  const { data: espera, loading: lespera } = useEsperaVendedor()
+  const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
   const { data: umblerVend } = useUmblerVendedores()
 
