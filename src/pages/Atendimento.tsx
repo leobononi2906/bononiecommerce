@@ -1,3 +1,4 @@
+import type { Periodo } from '../types'
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useLeads, useEsperaVendedor, useMetaAds, useUmblerVendedores } from '../hooks/useData'
@@ -5,13 +6,13 @@ import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../compo
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { PeriodSelector } from '../components/layout'
 import { fmtMinutes, fmtNum, shortName } from '../lib/fmt'
-import type { Periodo } from '../types'
 
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 const HORAS = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h']
 
-export default function Atendimento() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+interface Props { periodo: Periodo }
+
+export default function Atendimento({ periodo }: Props) {
   const { data: leads, loading: lleads } = useLeads(periodo)
   const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
@@ -98,7 +99,7 @@ export default function Atendimento() {
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
       <PageHeader title="Atendimento">
-        <PeriodSelector value={periodo} onChange={setPeriodo} />
+        
       </PageHeader>
 
       <SectionLabel>KPIs de atendimento</SectionLabel>
