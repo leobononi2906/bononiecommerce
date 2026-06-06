@@ -178,16 +178,17 @@ export function useUmblerVendedores() {
 }
 
 export function useFaturamento6Meses() {
-  return useQuery<FaturamentoMensal[]>(async () => {
-    const { data, error } = await supabase.rpc
-      ? await supabase.from('vw_comercial_docs_faturados')
-          .select('data_faturamento,nome_vendedor,id_vendedor,faturamento_doc,id_doc')
-          .eq('tipo_saida', 'ONLINE')
-          .gte('data_faturamento', (() => {
-            const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1); return d.toISOString().slice(0,10)
-          })())
-          .range(0, 9999)
-      : { data: null, error: new Error('no rpc') }
+  return useQuery<any[]>(async () => {
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    const start = sixMonthsAgo.toISOString().slice(0, 10)
+    const { data, error } = await supabase
+      .from('vw_comercial_docs_faturados')
+      .select('data_faturamento,nome_vendedor,departamento,faturamento_doc,id_doc')
+      .eq('tipo_saida', 'ONLINE')
+      .gte('data_faturamento', start)
+      .range(0, 9999)
     if (error) throw error
     return data || []
   }, [])
