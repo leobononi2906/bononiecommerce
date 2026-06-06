@@ -87,7 +87,7 @@ export default function Home({ periodo }: Props) {
       else row.Site += f
       row.total += f
     })
-    return [...map.entries()].sort((a)=>a[0]).map(([,v])=>v)
+    return [...map.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([,v])=>v)
   }, [fat6])
 
   const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#60A5FA','#93C5FD']
