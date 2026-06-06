@@ -6,6 +6,8 @@ import Campanhas from './pages/Campanhas'
 import Marketplace from './pages/Marketplace'
 import Vendedores from './pages/Vendedores'
 import Configuracoes from './pages/Configuracoes'
+import { PeriodSelector } from './components/layout'
+import type { Periodo } from './types'
 
 type Page = 'home' | 'atendimento' | 'campanhas' | 'marketplace' | 'vendedores' | 'configuracoes'
 
@@ -13,22 +15,25 @@ const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'home',          label: 'Home',         icon: <Home size={16} /> },
   { id: 'atendimento',   label: 'Atendimento',  icon: <MessageSquare size={16} /> },
   { id: 'campanhas',     label: 'Campanhas',    icon: <Megaphone size={16} /> },
-  { id: 'marketplace',  label: 'Marketplace',  icon: <ShoppingBag size={16} /> },
-  { id: 'vendedores',   label: 'Vendedores',   icon: <Users size={16} /> },
-  { id: 'configuracoes',label: 'Configurações', icon: <Settings size={16} /> },
+  { id: 'marketplace',   label: 'Marketplace',  icon: <ShoppingBag size={16} /> },
+  { id: 'vendedores',    label: 'Vendedores',   icon: <Users size={16} /> },
+  { id: 'configuracoes', label: 'Configurações',icon: <Settings size={16} /> },
 ]
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [collapsed, setCollapsed] = useState(false)
+  const [periodo, setPeriodo] = useState<Periodo>(
+    () => (localStorage.getItem('stonni_periodo_default') as Periodo) || 'mes_atual'
+  )
 
   const PAGES: Record<Page, React.ReactNode> = {
-    home:          <HomePg />,
-    atendimento:   <Atendimento />,
-    campanhas:     <Campanhas />,
-    marketplace:   <Marketplace />,
-    vendedores:    <Vendedores />,
-    configuracoes: <Configuracoes />,
+    home:          <HomePg periodo={periodo} />,
+    atendimento:   <Atendimento periodo={periodo} />,
+    campanhas:     <Campanhas periodo={periodo} />,
+    marketplace:   <Marketplace periodo={periodo} />,
+    vendedores:    <Vendedores periodo={periodo} />,
+    configuracoes: <Configuracoes periodo={periodo} />,
   }
 
   return (
@@ -68,6 +73,45 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Period selector — visível só quando expandido */}
+        {!collapsed && (
+          <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Período</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {(['mes_atual','mes_anterior','3_meses','6_meses'] as Periodo[]).map(p => {
+                const labels: Record<Periodo, string> = {
+                  mes_atual: 'Mês atual',
+                  mes_anterior: 'Mês anterior',
+                  '3_meses': 'Últimos 3 meses',
+                  '6_meses': 'Últimos 6 meses',
+                }
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPeriodo(p)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '5px 8px',
+                      borderRadius: 6,
+                      border: 'none',
+                      fontSize: 12,
+                      fontWeight: periodo === p ? 600 : 400,
+                      cursor: 'pointer',
+                      background: periodo === p ? '#EFF6FF' : 'transparent',
+                      color: periodo === p ? 'var(--blue-dark)' : 'var(--text-muted)',
+                      fontFamily: 'DM Sans, sans-serif',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {labels[p]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Nav items */}
         <nav style={{ flex: 1, padding: '10px 0' }}>
