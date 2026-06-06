@@ -125,20 +125,41 @@ export function useSubgrupos(periodo: Periodo) {
 export function useEsperaVendedor(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomEsperaVendedor[]>(async () => {
-    const [{ data: espera, error }, { data: mapa }] = await Promise.all([
-      supabase.from('vw_ecom_espera_vendedor').select('*').gte('data_ref',start).lte('data_ref',end).range(0,9999),
-      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp').range(0,9999)
+    const [{ data: mapa }, { data: maxDate }] = await Promise.all([
+      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp').range(0,9999),
+      supabase.from('vw_ecom_espera_vendedor').select('data_ref').order('data_ref', {ascending:false}).limit(1),
     ])
+
+    // Se o periodo nao tem dados, usa os ultimos 60 dias com dados
+    let s = start, e = end
+    if (maxDate && maxDate[0]) {
+      const lastDate = maxDate[0].data_ref as string
+      if (lastDate < start) {
+        // periodo selecionado esta apos o ultimo dado — volta 60 dias a partir do ultimo dado
+        const d = new Date(lastDate)
+        e = lastDate
+        d.setDate(d.getDate() - 60)
+        s = d.toISOString().slice(0,10)
+      }
+    }
+
+    const { data: espera, error } = await supabase
+      .from('vw_ecom_espera_vendedor').select('*').gte('data_ref',s).lte('data_ref',e).range(0,9999)
     if (error) throw error
+
     const lookup: Record<string,string> = {}
     ;(mapa||[]).forEach((m:any) => { lookup[m.id_membro_umbler] = m.nome_vendedor_erp })
-    return (espera||[]).map(r => ({
-      ...r,
-      nome_vendedor: lookup[r.id_vendedor] || r.nome_vendedor,
-      tempo_medio_min: Number(r.tempo_medio_min),
-      tempo_min_min: Number(r.tempo_min_min),
-      tempo_max_min: Number(r.tempo_max_min),
-    }))
+
+    // Filtra registros com tempo negativo (bug na view — timestamps invertidos)
+    return (espera||[])
+      .filter(r => Number(r.tempo_medio_min) > 0)
+      .map(r => ({
+        ...r,
+        nome_vendedor: lookup[r.id_vendedor] || r.nome_vendedor,
+        tempo_medio_min: Number(r.tempo_medio_min),
+        tempo_min_min: Math.max(0, Number(r.tempo_min_min)),
+        tempo_max_min: Math.max(0, Number(r.tempo_max_min)),
+      }))
   }, [start, end])
 }
 
