@@ -1,3 +1,4 @@
+import type { Periodo } from '../types'
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useMarketplace } from '../hooks/useData'
@@ -5,10 +6,10 @@ import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../compo
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { PeriodSelector } from '../components/layout'
 import { fmtBRL, fmtPct, shortName } from '../lib/fmt'
-import type { Periodo } from '../types'
 
-export default function Marketplace() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+interface Props { periodo: Periodo }
+
+export default function Marketplace({ periodo }: Props) {
   const { data: mkt, loading } = useMarketplace(periodo)
 
   const kpis = useMemo(() => {
@@ -56,7 +57,7 @@ export default function Marketplace() {
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
       <PageHeader title="Marketplace">
-        <PeriodSelector value={periodo} onChange={setPeriodo} />
+        
       </PageHeader>
 
       <SectionLabel>KPIs marketplace</SectionLabel>
