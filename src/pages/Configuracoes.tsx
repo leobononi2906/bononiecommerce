@@ -1,5 +1,5 @@
 import type { Periodo } from '../types'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useUmblerVendedores, useCampanhaSubgrupos, useMetaAds } from '../hooks/useData'
 import { Card, CardTitle, SectionLabel, Badge, Spinner } from '../components/ui'
