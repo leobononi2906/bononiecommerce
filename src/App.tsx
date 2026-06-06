@@ -11,12 +11,12 @@ import type { Periodo } from './types'
 type Page = 'home' | 'atendimento' | 'campanhas' | 'marketplace' | 'vendedores' | 'configuracoes'
 
 const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
-  { id: 'home',          label: 'Home',         icon: <Home size={16} /> },
-  { id: 'atendimento',   label: 'Atendimento',  icon: <MessageSquare size={16} /> },
-  { id: 'campanhas',     label: 'Campanhas',    icon: <Megaphone size={16} /> },
-  { id: 'marketplace',   label: 'Marketplace',  icon: <ShoppingBag size={16} /> },
-  { id: 'vendedores',    label: 'Vendedores',   icon: <Users size={16} /> },
-  { id: 'configuracoes', label: 'Configurações',icon: <Settings size={16} /> },
+  { id: 'home',          label: 'Home',         icon: <Home size={15} /> },
+  { id: 'atendimento',   label: 'Atendimento',  icon: <MessageSquare size={15} /> },
+  { id: 'campanhas',     label: 'Campanhas',    icon: <Megaphone size={15} /> },
+  { id: 'marketplace',   label: 'Marketplace',  icon: <ShoppingBag size={15} /> },
+  { id: 'vendedores',    label: 'Vendedores',   icon: <Users size={15} /> },
+  { id: 'configuracoes', label: 'Configurações',icon: <Settings size={15} /> },
 ]
 
 const PERIODO_LABELS: Record<Periodo, string> = {
@@ -27,7 +27,7 @@ const PERIODO_LABELS: Record<Periodo, string> = {
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>('home')
+  const [page, setPage]       = useState<Page>('home')
   const [collapsed, setCollapsed] = useState(false)
   const [periodo, setPeriodo] = useState<Periodo>(
     () => (localStorage.getItem('stonni_periodo_default') as Periodo) || 'mes_atual'
@@ -43,88 +43,71 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
 
-      {/* ── Top header bar ── */}
-      <header style={{
-        height: 52,
+      {/* ── Sidebar ── */}
+      <aside style={{
+        width: collapsed ? 52 : 210,
         background: 'var(--surface)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 20px',
-        gap: 16,
+        borderRight: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column',
         flexShrink: 0,
-        zIndex: 10,
+        transition: 'width 0.2s ease',
+        overflow: 'hidden',
       }}>
+
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ padding: collapsed ? '16px 0' : '16px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Snowflake size={14} color="#fff" />
           </div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--blue-dark)' }}>Stonni</span>
+          {!collapsed && <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--blue-dark)' }}>Stonni</div><div style={{ fontSize: 10, color: 'var(--text-hint)' }}>Ecommerce</div></div>}
         </div>
 
-        <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-
-        {/* Nav tabs */}
-        <nav style={{ display: 'flex', gap: 2, flex: 1 }}>
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '8px 0' }}>
           {NAV.map(n => {
             const active = page === n.id
             return (
-              <button
-                key={n.id}
-                onClick={() => setPage(n.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '5px 12px',
-                  border: 'none',
-                  borderRadius: 7,
-                  background: active ? '#EFF6FF' : 'transparent',
-                  color: active ? 'var(--blue-dark)' : 'var(--text-muted)',
-                  fontSize: 13, fontWeight: active ? 600 : 400,
-                  cursor: 'pointer',
-                  fontFamily: 'DM Sans, sans-serif',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {n.icon}
-                <span>{n.label}</span>
+              <button key={n.id} onClick={() => setPage(n.id)} title={collapsed ? n.label : undefined}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: collapsed ? '9px 0' : '9px 14px', justifyContent: collapsed ? 'center' : 'flex-start', border: 'none', background: active ? '#EFF6FF' : 'transparent', color: active ? 'var(--blue-dark)' : 'var(--text-muted)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', borderLeft: active ? '3px solid var(--blue-dark)' : '3px solid transparent', transition: 'all 0.15s' }}>
+                <span style={{ flexShrink: 0 }}>{n.icon}</span>
+                {!collapsed && <span>{n.label}</span>}
               </button>
             )
           })}
         </nav>
 
-        {/* Period selector */}
-        <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8, flexShrink: 0 }}>
-          {(Object.keys(PERIODO_LABELS) as Periodo[]).map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriodo(p)}
-              style={{
-                padding: '4px 11px',
-                borderRadius: 6,
-                border: 'none',
-                fontSize: 12, fontWeight: 500,
-                cursor: 'pointer',
-                background: periodo === p ? 'var(--surface)' : 'transparent',
-                color: periodo === p ? 'var(--blue-dark)' : 'var(--text-muted)',
-                boxShadow: periodo === p ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s',
-                fontFamily: 'DM Sans, sans-serif',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {PERIODO_LABELS[p]}
-            </button>
-          ))}
-        </div>
-      </header>
+        {/* Collapse */}
+        <button onClick={() => setCollapsed(c => !c)} style={{ margin: '0 0 10px', padding: '6px', alignSelf: 'center', border: '1px solid var(--border)', borderRadius: 7, background: 'transparent', cursor: 'pointer', color: 'var(--text-hint)', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
+          <ChevronRight size={13} />
+        </button>
+      </aside>
 
-      {/* ── Content ── */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
-        {PAGES[page]}
-      </main>
+      {/* ── Right side ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* ── Top bar com filtro de período ── */}
+        <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {NAV.find(n => n.id === page)?.label}
+          </span>
+          {/* Period selector */}
+          <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
+            {(Object.keys(PERIODO_LABELS) as Periodo[]).map(p => (
+              <button key={p} onClick={() => setPeriodo(p)}
+                style={{ padding: '4px 11px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: periodo === p ? 'var(--surface)' : 'transparent', color: periodo === p ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: periodo === p ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
+                {PERIODO_LABELS[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Page content ── */}
+        <main style={{ flex: 1, overflow: 'auto' }}>
+          {PAGES[page]}
+        </main>
+      </div>
     </div>
   )
 }
