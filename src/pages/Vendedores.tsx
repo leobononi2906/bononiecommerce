@@ -1,3 +1,4 @@
+import type { Periodo } from '../types'
 import React, { useMemo, useEffect, useState } from 'react'
 import { useVendedores, useEsperaVendedor, useUmblerVendedores } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner } from '../components/ui'
