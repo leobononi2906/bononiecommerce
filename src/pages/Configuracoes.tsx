@@ -1,6 +1,7 @@
+import type { Periodo } from '../types'
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useUmblerVendedores, useCampanhaSubgrupos } from '../hooks/useData'
+import { useUmblerVendedores, useCampanhaSubgrupos, useMetaAds } from '../hooks/useData'
 import { Card, CardTitle, SectionLabel, Badge, Spinner } from '../components/ui'
 import { shortName } from '../lib/fmt'
 import { Plus, Trash2, Save, RefreshCw } from 'lucide-react'
@@ -26,8 +27,11 @@ const BTN = (color: string, bg: string): React.CSSProperties => ({
   color, fontFamily: 'DM Sans, sans-serif',
 })
 
-export default function Configuracoes() {
+interface Props { periodo: Periodo }
+
+export default function Configuracoes({ periodo }: Props) {
   const { data: umblerVend, loading: lv } = useUmblerVendedores()
+  const { data: metaAdsData } = useMetaAds(periodo)
   const { data: campSub, loading: lcs } = useCampanhaSubgrupos()
 
   // --- Vendedores ---
@@ -69,16 +73,10 @@ export default function Configuracoes() {
   const [csForm, setCsForm] = useState({ campanha: '', subgrupo_produto: '' })
   const [csMsg, setCsMsg] = useState('')
   const [csSaving, setCsSaving] = useState(false)
-  const [campanhasDistinct, setCampanhasDistinct] = useState<string[]>([])
-
-  useEffect(() => {
-    supabase.from('ecom_meta_ads').select('campanha').range(0, 9999).then(({ data }) => {
-      if (data) {
-        const unique = [...new Set(data.map((r: any) => r.campanha as string))].sort()
-        setCampanhasDistinct(unique)
-      }
-    })
-  }, [])
+  const campanhasDistinct = useMemo(() => {
+    if (!metaAdsData) return []
+    return [...new Set(metaAdsData.map((r: any) => r.campanha as string).filter(Boolean))].sort() as string[]
+  }, [metaAdsData])
 
   async function saveCampanhaSubgrupo() {
     if (!csForm.campanha || !csForm.subgrupo_produto) {
