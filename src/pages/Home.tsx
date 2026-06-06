@@ -1,29 +1,49 @@
-import React, { useMemo, useState } from 'react'
-import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Legend,
-} from 'recharts'
-import { useVendedores, useSubgrupos, useLeads, useFaturamento6Meses } from '../hooks/useData'
-import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
+import React, { useMemo } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { useVendedores, useSubgrupos, useLeads, useFaturamento6Meses, useMarketplace } from '../hooks/useData'
+import { KpiCard, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
-import { PeriodSelector } from '../components/layout'
-import { fmtBRL, fmtPct, fmtNum, mesAbrev, shortName } from '../lib/fmt'
+import { fmtBRL, fmtNum, fmtPct, mesAbrev, shortName } from '../lib/fmt'
 import type { Periodo } from '../types'
+import { Badge } from '../components/ui'
 
-export default function Home() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+interface Props { periodo: Periodo }
+
+export default function Home({ periodo }: Props) {
   const { data: vendedores, loading: lvend } = useVendedores(periodo)
-  const { data: subgrupos, loading: lsub } = useSubgrupos(periodo)
-  const { data: leads, loading: lleads } = useLeads(periodo)
-  const { data: fatRaw, loading: lfat } = useFaturamento6Meses()
+  const { data: subgrupos, loading: lsub }   = useSubgrupos(periodo)
+  const { data: leads,     loading: lleads } = useLeads(periodo)
+  const { data: fatRaw,    loading: lfat }   = useFaturamento6Meses()
+  const { data: mkt }                        = useMarketplace(periodo)
 
+  // KPIs faturamento geral
   const kpis = useMemo(() => {
     if (!vendedores) return null
-    const fat = vendedores.reduce((s, v) => s + v.faturamento_erp, 0)
+    const fat  = vendedores.reduce((s, v) => s + v.faturamento_erp, 0)
     const docs = vendedores.reduce((s, v) => s + v.qtd_docs, 0)
     const ticket = docs > 0 ? fat / docs : 0
     return { fat, docs, ticket }
   }, [vendedores])
+
+  // Faturamento vendedores (ECOMMERCE, excluindo marketplace)
+  const fatVendedores = useMemo(() => {
+    if (!vendedores) return 0
+    return vendedores
+      .filter(v => v.departamento && v.departamento.includes('ECOMMERCE') && !v.departamento.includes('MKT') && !v.departamento.includes('PLACE'))
+      .reduce((s, v) => s + v.faturamento_erp, 0)
+  }, [vendedores])
+
+  // Faturamento site (vw_comercial_docs_faturados tipo_saida ONLINE via fatRaw)
+  const fatSite = useMemo(() => {
+    if (!fatRaw) return 0
+    return fatRaw.reduce((s: number, r: any) => s + Number(r.faturamento_doc), 0)
+  }, [fatRaw])
+
+  // Faturamento marketplace
+  const fatMkt = useMemo(() => {
+    if (!mkt) return 0
+    return mkt.reduce((s, r) => s + r.faturamento_bruto, 0)
+  }, [mkt])
 
   const leadCount = leads?.length ?? 0
 
@@ -46,15 +66,13 @@ export default function Home() {
     const meses = new Set<string>()
     const vendors = new Set<string>()
     fatRaw.forEach((r: any) => {
-      const mes = mesAbrev(r.data_faturamento)
+      const mes  = mesAbrev(r.data_faturamento)
       const vend = shortName(r.nome_vendedor || '')
-      meses.add(mes)
-      vendors.add(vend)
+      meses.add(mes); vendors.add(vend)
       if (!byMesVend[mes]) byMesVend[mes] = {}
       byMesVend[mes][vend] = (byMesVend[mes][vend] || 0) + Number(r.faturamento_doc)
     })
-    const mesesArr = [...meses].sort()
-    return mesesArr.map(mes => ({ mes, ...byMesVend[mes] }))
+    return [...meses].sort().map(mes => ({ mes, ...byMesVend[mes] }))
   }, [fatRaw])
 
   const top5Vend = useMemo(() => {
@@ -67,16 +85,16 @@ export default function Home() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k]) => k)
   }, [fatRaw])
 
-  const COLORS = ['#1A3A8F', '#0077CC', '#00AAEE', '#60A5FA', '#93C5FD']
+  const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#60A5FA','#93C5FD']
 
   const fat6Depto = useMemo(() => {
     if (!fatRaw) return []
     const map: Record<string, Record<string, number>> = {}
     const meses = new Set<string>()
     fatRaw.forEach((r: any) => {
-      const mes = mesAbrev(r.data_faturamento)
-      meses.add(mes)
+      const mes   = mesAbrev(r.data_faturamento)
       const depto = (r.departamento as string) || 'Outros'
+      meses.add(mes)
       if (!map[mes]) map[mes] = {}
       map[mes][depto] = (map[mes][depto] || 0) + Number(r.faturamento_doc)
     })
@@ -98,20 +116,24 @@ export default function Home() {
     'Outros': '#CBD5E1',
   }
 
-  if (lvend || lsub || lleads) return <Spinner />
+  if (lvend || lleads) return <Spinner />
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
-      <PageHeader title="Visão Geral">
-        <PeriodSelector value={periodo} onChange={setPeriodo} />
-      </PageHeader>
+      <PageHeader title="Visão Geral" />
 
-      <SectionLabel>KPIs de faturamento</SectionLabel>
-      <KpiGrid cols={4}>
-        <KpiCard label="Faturamento total" value={fmtBRL(kpis?.fat)} icon="💰" highlight />
-        <KpiCard label="Pedidos (ERP)" value={fmtNum(kpis?.docs)} icon="📦" />
-        <KpiCard label="Ticket médio" value={fmtBRL(kpis?.ticket)} icon="🎫" />
-        <KpiCard label="Leads (período)" value={fmtNum(leadCount)} icon="👥" />
+      <SectionLabel>Faturamento por canal</SectionLabel>
+      <KpiGrid cols={3}>
+        <KpiCard label="Faturamento Vendedores" value={fmtBRL(fatVendedores)} icon="👤" highlight />
+        <KpiCard label="Faturamento Site (ONLINE)" value={fmtBRL(fatSite)} icon="🛒" />
+        <KpiCard label="Faturamento Marketplace" value={fmtBRL(fatMkt)} icon="🏪" />
+      </KpiGrid>
+
+      <SectionLabel>KPIs gerais</SectionLabel>
+      <KpiGrid cols={3}>
+        <KpiCard label="Total geral (ERP)" value={fmtBRL(kpis?.fat)} icon="💰" />
+        <KpiCard label="Pedidos (ERP)"      value={fmtNum(kpis?.docs)} icon="📦" />
+        <KpiCard label="Leads (período)"    value={fmtNum(leadCount)} icon="👥" />
       </KpiGrid>
 
       <Row>
@@ -160,7 +182,6 @@ export default function Home() {
       </Row>
 
       <SectionLabel>Faturamento — últimos 6 meses</SectionLabel>
-
       <Row>
         <Col flex={1}>
           <Card>
@@ -182,7 +203,6 @@ export default function Home() {
           </Card>
         </Col>
       </Row>
-
       <Row>
         <Col flex={1}>
           <Card>
