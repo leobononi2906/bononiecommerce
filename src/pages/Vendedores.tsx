@@ -2,12 +2,14 @@ import React, { useMemo, useEffect, useState } from 'react'
 import { useVendedores, useEsperaVendedor, useUmblerVendedores } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
+import { PeriodSelector } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, fmtMinutes, shortName } from '../lib/fmt'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 export default function Vendedores() {
-  const { data: vendedores, loading: lvend } = useVendedores()
-  const { data: espera, loading: lespera } = useEsperaVendedor()
+  const [periodo, setPeriodo] = useState<Periodo>('mes_atual')
+  const { data: vendedores, loading: lvend } = useVendedores(periodo)
+  const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: umblerVend } = useUmblerVendedores()
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
@@ -64,7 +66,7 @@ export default function Vendedores() {
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
-      <PageHeader title="Vendedores">
+      <PageHeader title="Vendedores"><PeriodSelector value={periodo} onChange={setPeriodo} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--text-hint)' }}>
             Atualizado às {lastRefresh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
