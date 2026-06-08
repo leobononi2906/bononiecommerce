@@ -1,22 +1,24 @@
 import React, { useState } from 'react'
-import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight } from 'lucide-react'
+import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch } from 'lucide-react'
 import HomePg from './pages/Home'
 import Atendimento from './pages/Atendimento'
 import Campanhas from './pages/Campanhas'
 import Marketplace from './pages/Marketplace'
 import Vendedores from './pages/Vendedores'
 import Configuracoes from './pages/Configuracoes'
+import ConferenciaBling from './pages/ConferenciaBling'
 import type { Periodo } from './types'
 
-type Page = 'home' | 'atendimento' | 'campanhas' | 'marketplace' | 'vendedores' | 'configuracoes'
+type Page = 'home' | 'atendimento' | 'campanhas' | 'marketplace' | 'vendedores' | 'conferencia' | 'configuracoes'
 
 const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
-  { id: 'home',          label: 'Home',         icon: <Home size={15} /> },
-  { id: 'atendimento',   label: 'Atendimento',  icon: <MessageSquare size={15} /> },
-  { id: 'campanhas',     label: 'Campanhas',    icon: <Megaphone size={15} /> },
-  { id: 'marketplace',   label: 'Marketplace',  icon: <ShoppingBag size={15} /> },
-  { id: 'vendedores',    label: 'Vendedores',   icon: <Users size={15} /> },
-  { id: 'configuracoes', label: 'Configurações',icon: <Settings size={15} /> },
+  { id: 'home',          label: 'Home',              icon: <Home size={15} /> },
+  { id: 'atendimento',   label: 'Atendimento',       icon: <MessageSquare size={15} /> },
+  { id: 'campanhas',     label: 'Campanhas',         icon: <Megaphone size={15} /> },
+  { id: 'marketplace',   label: 'Marketplace',       icon: <ShoppingBag size={15} /> },
+  { id: 'vendedores',    label: 'Vendedores',        icon: <Users size={15} /> },
+  { id: 'conferencia',   label: 'Conferência Bling', icon: <PackageSearch size={15} /> },
+  { id: 'configuracoes', label: 'Configurações',     icon: <Settings size={15} /> },
 ]
 
 const PERIODO_LABELS: Record<Periodo, string> = {
@@ -39,6 +41,7 @@ export default function App() {
     campanhas:     <Campanhas periodo={periodo} />,
     marketplace:   <Marketplace periodo={periodo} />,
     vendedores:    <Vendedores periodo={periodo} />,
+    conferencia:   <ConferenciaBling periodo={periodo} />,
     configuracoes: <Configuracoes periodo={periodo} />,
   }
 
@@ -86,13 +89,10 @@ export default function App() {
 
       {/* ── Right side ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* ── Top bar com filtro de período ── */}
         <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             {NAV.find(n => n.id === page)?.label}
           </span>
-          {/* Period selector */}
           <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
             {(Object.keys(PERIODO_LABELS) as Periodo[]).map(p => (
               <button key={p} onClick={() => setPeriodo(p)}
@@ -102,8 +102,6 @@ export default function App() {
             ))}
           </div>
         </div>
-
-        {/* ── Page content ── */}
         <main style={{ flex: 1, overflow: 'auto' }}>
           {PAGES[page]}
         </main>
