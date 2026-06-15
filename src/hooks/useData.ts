@@ -62,7 +62,8 @@ export function useFaturamento6Meses() {
       .range(0, 9999)
     if (error) throw error
     return data || []
-  }, [])}
+  }, [])
+}
 
 export function useVendedores() {
   return useQuery<EcomVendedor[]>(async () => {
@@ -113,6 +114,20 @@ export function useSubgrupos(periodo: Periodo) {
   }, [start, end])
 }
 
+// Todos os subgrupos distintos que já venderam (para select de cadastro)
+export function useSubgruposERP() {
+  return useQuery<string[]>(async () => {
+    const { data, error } = await supabase
+      .from('vw_ecom_subgrupos')
+      .select('subgrupo')
+      .gte('data_ref', '2025-01-01')
+      .range(0, 9999)
+    if (error) throw error
+    const set = new Set<string>((data||[]).map((r:any) => r.subgrupo as string).filter(Boolean))
+    return [...set].sort()
+  }, [])
+}
+
 export function useEsperaVendedor(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomEsperaVendedor[]>(async () => {
@@ -124,10 +139,7 @@ export function useEsperaVendedor(periodo: Periodo) {
     if (maxDate && maxDate[0]) {
       const lastDate = maxDate[0].data_ref as string
       if (lastDate < start) {
-        const d = new Date(lastDate)
-        e = lastDate
-        d.setDate(d.getDate() - 60)
-        s = d.toISOString().slice(0,10)
+        const d = new Date(lastDate); e = lastDate; d.setDate(d.getDate() - 60); s = d.toISOString().slice(0,10)
       }
     }
     const { data: espera, error } = await supabase
@@ -174,6 +186,31 @@ export function useLeads(periodo: Periodo) {
       .range(0,9999)
     if (error) throw error
     return data || []
+  }, [start, end])
+}
+
+// IDs Umbler que chegaram no período (com ou sem vínculo)
+export function useLeadsUmblerIds(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
+  return useQuery<{ id_umbler: string; nome_umbler: string; leads_mes: number; ultimo_lead: string }[]>(async () => {
+    const { data, error } = await supabase
+      .from('ecom_leads')
+      .select('id_vendedor,nome_vendedor,criado_em')
+      .gte('criado_em', start+'T00:00:00')
+      .lte('criado_em', end+'T23:59:59')
+      .not('id_vendedor', 'is', null)
+      .range(0, 9999)
+    if (error) throw error
+    const map = new Map<string,{nome:string; count:number; ultimo:string}>()
+    ;(data||[]).forEach((r:any) => {
+      const cur = map.get(r.id_vendedor) || { nome: r.nome_vendedor || r.id_vendedor, count: 0, ultimo: '' }
+      cur.count++
+      if (r.criado_em > cur.ultimo) cur.ultimo = r.criado_em
+      map.set(r.id_vendedor, cur)
+    })
+    return [...map.entries()].map(([id, d]) => ({
+      id_umbler: id, nome_umbler: d.nome, leads_mes: d.count, ultimo_lead: d.ultimo.slice(0,10)
+    })).sort((a,b) => b.leads_mes - a.leads_mes)
   }, [start, end])
 }
 
