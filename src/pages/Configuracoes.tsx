@@ -207,7 +207,7 @@ export default function Configuracoes({ periodo }: Props) {
         )}
       </Card>
 
-      <Card style={{ marginBottom:20 }} id="form-vendedor">
+      <div id="form-vendedor"><Card style={{ marginBottom:20 }}>
         <CardTitle>Cadastrar / atualizar vínculo</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:10, marginBottom:10 }}>
           <div>
@@ -235,7 +235,7 @@ export default function Configuracoes({ periodo }: Props) {
         <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveVendedor} disabled={vendSaving}>
           <Plus size={13}/>{vendSaving?'Salvando…':'Salvar vínculo'}
         </button>
-      </Card>
+      </Card></div>
 
       <Card style={{ marginBottom:28 }}>
         <CardTitle>Vínculos cadastrados</CardTitle>
