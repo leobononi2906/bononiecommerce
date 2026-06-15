@@ -233,3 +233,20 @@ export function useOrigemLeads(periodo: Periodo) {
     }))
   }, [start, end])
 }
+
+// Campanhas ativas nos últimos 30 dias (para select de configuração)
+export function useMetaAdsAtivos() {
+  return useQuery<string[]>(async () => {
+    const since = new Date()
+    since.setDate(since.getDate() - 30)
+    const { data, error } = await supabase
+      .from('ecom_meta_ads')
+      .select('campanha')
+      .gte('data', since.toISOString().slice(0,10))
+      .range(0, 9999)
+    if (error) throw error
+    const set = new Set<string>((data||[]).map((r:any) => r.campanha as string).filter(Boolean))
+    return [...set].sort()
+  }, [])
+}
+
