@@ -54,7 +54,7 @@ export interface EcomMarketplace {
   nome_vendedor: string
   id_vendedor: number
   faturamento_bruto: number
-  taxa_marketplace: number  // maps to taxa_total in vw_ecom_marketplace
+  taxa_marketplace: number
   taxa_total?: number
   faturamento_liquido: number
   custo_total: number
@@ -119,6 +119,19 @@ export interface EcomCampanhaSubgrupo {
   subgrupo_produto: string
   created_at: string
   updated_at: string
+}
+
+export interface EcomOrigemLead {
+  data_lead: string
+  produto: string
+  publico: string
+  campanha: string
+  conjunto: string
+  anuncio: string
+  leads: number
+  investimento: number
+  leads_meta: number
+  cpl: number
 }
 
 export type Periodo = 'mes_atual' | 'mes_anterior' | '3_meses' | '6_meses'
