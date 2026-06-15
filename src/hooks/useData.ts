@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type {
   EcomVendedor, EcomCampanha, EcomSubgrupo, EcomEsperaVendedor,
-  EcomUmblerVendedor, EcomMetaAds, EcomCampanhaSubgrupo, Periodo
+  EcomUmblerVendedor, EcomMetaAds, EcomCampanhaSubgrupo, EcomOrigemLead, Periodo
 } from '../types'
 
 export function getPeriodRange(periodo: Periodo): { start: string; end: string } {
@@ -26,11 +26,9 @@ function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   return { data, loading, error }
 }
 
-// Nomes dos vendedores marketplace e site
 export const MKT_NAMES = new Set(['ML BATTOGO', 'ML BONONI FULL', 'ML BONONI', 'SHOPEE BRASIL'])
 export const SITE_NAMES = new Set(['SITE'])
 
-// Classifica vendedor em canal
 export function getCanal(nome: string): 'marketplace' | 'site' | 'vendedor' {
   const n = nome.trim().toUpperCase()
   if (MKT_NAMES.has(n) || n.startsWith('ML ') || n === 'SHOPEE BRASIL') return 'marketplace'
@@ -38,7 +36,6 @@ export function getCanal(nome: string): 'marketplace' | 'site' | 'vendedor' {
   return 'vendedor'
 }
 
-// Faturamento periodo via vw_comercial_docs_faturados (ONLINE)
 export function useFaturamentoPeriodo(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<any[]>(async () => {
@@ -54,7 +51,6 @@ export function useFaturamentoPeriodo(periodo: Periodo) {
   }, [start, end])
 }
 
-// 6 meses de faturamento ONLINE por vendedor
 export function useFaturamento6Meses() {
   return useQuery<any[]>(async () => {
     const d = new Date(); d.setMonth(d.getMonth()-5); d.setDate(1)
@@ -66,10 +62,8 @@ export function useFaturamento6Meses() {
       .range(0, 9999)
     if (error) throw error
     return data || []
-  }, [])
-}
+  }, [])}
 
-// vw_ecom_vendedores — agregado histórico, sem filtro de data
 export function useVendedores() {
   return useQuery<EcomVendedor[]>(async () => {
     const { data, error } = await supabase.from('vw_ecom_vendedores').select('*').range(0,9999)
@@ -99,7 +93,6 @@ export function useCampanhas(periodo: Periodo) {
   }, [start, end])
 }
 
-// Meta Ads direto da tabela ecom_meta_ads (tem leads corretos)
 export function useMetaAds(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomMetaAds[]>(async () => {
@@ -109,7 +102,6 @@ export function useMetaAds(periodo: Periodo) {
   }, [start, end])
 }
 
-// Subgrupos via vw_ecom_subgrupos (usa data_ref)
 export function useSubgrupos(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomSubgrupo[]>(async () => {
@@ -121,7 +113,6 @@ export function useSubgrupos(periodo: Periodo) {
   }, [start, end])
 }
 
-// Espera vendedor — nome_vendedor eh id_umbler, resolve via ecom_umbler_vendedor
 export function useEsperaVendedor(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomEsperaVendedor[]>(async () => {
@@ -129,28 +120,21 @@ export function useEsperaVendedor(periodo: Periodo) {
       supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp').range(0,9999),
       supabase.from('vw_ecom_espera_vendedor').select('data_ref').order('data_ref', {ascending:false}).limit(1),
     ])
-
-    // Se o periodo nao tem dados, usa os ultimos 60 dias com dados
     let s = start, e = end
     if (maxDate && maxDate[0]) {
       const lastDate = maxDate[0].data_ref as string
       if (lastDate < start) {
-        // periodo selecionado esta apos o ultimo dado — volta 60 dias a partir do ultimo dado
         const d = new Date(lastDate)
         e = lastDate
         d.setDate(d.getDate() - 60)
         s = d.toISOString().slice(0,10)
       }
     }
-
     const { data: espera, error } = await supabase
       .from('vw_ecom_espera_vendedor').select('*').gte('data_ref',s).lte('data_ref',e).range(0,9999)
     if (error) throw error
-
     const lookup: Record<string,string> = {}
     ;(mapa||[]).forEach((m:any) => { lookup[m.id_membro_umbler] = m.nome_vendedor_erp })
-
-    // Filtra registros com tempo negativo (bug na view — timestamps invertidos)
     return (espera||[])
       .filter(r => Number(r.tempo_medio_min) > 0)
       .map(r => ({
@@ -190,5 +174,25 @@ export function useLeads(periodo: Periodo) {
       .range(0,9999)
     if (error) throw error
     return data || []
+  }, [start, end])
+}
+
+export function useOrigemLeads(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
+  return useQuery<EcomOrigemLead[]>(async () => {
+    const { data, error } = await supabase
+      .from('vw_ecom_origem_leads')
+      .select('*')
+      .gte('data_lead', start)
+      .lte('data_lead', end)
+      .range(0, 9999)
+    if (error) throw error
+    return (data || []).map(r => ({
+      ...r,
+      leads: Number(r.leads),
+      investimento: Number(r.investimento),
+      leads_meta: Number(r.leads_meta),
+      cpl: Number(r.cpl),
+    }))
   }, [start, end])
 }
