@@ -1,7 +1,7 @@
 import type { Periodo } from '../types'
 import React, { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { useUmblerVendedores, useCampanhaSubgrupos, useMetaAds, useLeadsUmblerIds, useSubgruposERP } from '../hooks/useData'
+import { useUmblerVendedores, useCampanhaSubgrupos, useLeadsUmblerIds, useSubgruposERP, useMetaAdsAtivos } from '../hooks/useData'
 import { Card, CardTitle, SectionLabel, Badge, Spinner } from '../components/ui'
 import { Plus, Trash2, Save, UserPlus } from 'lucide-react'
 import type { EcomUmblerVendedor } from '../types'
@@ -28,11 +28,11 @@ const td: React.CSSProperties = { padding: '7px 8px', fontSize: 12 }
 interface Props { periodo: Periodo }
 
 export default function Configuracoes({ periodo }: Props) {
-  const { data: umblerVend,  loading: lv,  } = useUmblerVendedores()
-  const { data: metaAdsData               } = useMetaAds(periodo)
-  const { data: campSub,     loading: lcs } = useCampanhaSubgrupos()
-  const { data: leadsIds,    loading: lids} = useLeadsUmblerIds(periodo)
-  const { data: subgruposERP              } = useSubgruposERP()
+  const { data: umblerVend,  loading: lv   } = useUmblerVendedores()
+  const { data: campSub,     loading: lcs  } = useCampanhaSubgrupos()
+  const { data: leadsIds,    loading: lids } = useLeadsUmblerIds(periodo)
+  const { data: subgruposERP               } = useSubgruposERP()
+  const { data: campanhasAtivas            } = useMetaAdsAtivos()
 
   // ── mapa de IDs já vinculados ────────────────────────────
   const vinculadosMap = useMemo(() => {
@@ -41,7 +41,18 @@ export default function Configuracoes({ periodo }: Props) {
     return m
   }, [umblerVend])
 
-  // ── form pré-preenchível ao clicar em ID sem vínculo ────
+  // ── campanhas já vinculadas (some do select) ─────────────
+  const campanhasJaVinculadas = useMemo(
+    () => new Set((campSub||[]).map(cs => cs.campanha)),
+    [campSub]
+  )
+
+  // Apenas campanhas ativas nos últimos 30 dias e ainda não vinculadas
+  const campanhasDisponiveis = useMemo(() => {
+    return (campanhasAtivas||[]).filter(c => !campanhasJaVinculadas.has(c))
+  }, [campanhasAtivas, campanhasJaVinculadas])
+
+  // ── form vendedor ────────────────────────────────────────
   const [vendForm, setVendForm] = useState({ id_membro_umbler:'', nome_vendedor_erp:'', id_vendedor_erp:'', nome_vendedor_erp_completo:'' })
   const [vendMsg, setVendMsg]   = useState('')
   const [vendSaving, setVendSaving] = useState(false)
@@ -65,7 +76,11 @@ export default function Configuracoes({ periodo }: Props) {
     })
     setVendSaving(false)
     if (error) setVendMsg('Erro: ' + error.message)
-    else { setVendMsg('Salvo!'); setVendForm({ id_membro_umbler:'', nome_vendedor_erp:'', id_vendedor_erp:'', nome_vendedor_erp_completo:'' }); setTimeout(()=>window.location.reload(),600) }
+    else {
+      setVendMsg('Salvo!')
+      setVendForm({ id_membro_umbler:'', nome_vendedor_erp:'', id_vendedor_erp:'', nome_vendedor_erp_completo:'' })
+      setTimeout(() => window.location.reload(), 600)
+    }
   }
 
   async function toggleVendedor(id: string, ativo: boolean) {
@@ -78,28 +93,27 @@ export default function Configuracoes({ periodo }: Props) {
     window.location.reload()
   }
 
-  // ── Campanha × Subgrupo ──────────────────────────────────
-  const campanhasJaVinculadas = useMemo(() => new Set((campSub||[]).map(cs => cs.campanha)), [campSub])
-  const campanhasDisponiveis = useMemo(() => {
-    if (!metaAdsData) return []
-    return [...new Set(metaAdsData.map((r:any) => r.campanha as string).filter(Boolean))]
-      .filter(c => !campanhasJaVinculadas.has(c))
-      .sort()
-  }, [metaAdsData, campanhasJaVinculadas])
-
-  const [csForm, setCsForm]   = useState({ campanha:'', subgrupo_produto:'' })
-  const [csMsg, setCsMsg]     = useState('')
+  // ── form campanha × subgrupo ─────────────────────────────
+  const [csForm, setCsForm]     = useState({ campanha:'', subgrupo_produto:'' })
+  const [csMsg, setCsMsg]       = useState('')
   const [csSaving, setCsSaving] = useState(false)
 
   async function saveCampanhaSubgrupo() {
-    if (!csForm.campanha || !csForm.subgrupo_produto) { setCsMsg('Selecione campanha e subgrupo.'); return }
+    if (!csForm.campanha || !csForm.subgrupo_produto) {
+      setCsMsg('Selecione campanha e subgrupo.'); return
+    }
     setCsSaving(true)
     const { error } = await supabase.from('ecom_campanha_subgrupo').insert({
-      campanha: csForm.campanha, subgrupo_produto: csForm.subgrupo_produto,
+      campanha: csForm.campanha,
+      subgrupo_produto: csForm.subgrupo_produto,
     })
     setCsSaving(false)
     if (error) setCsMsg('Erro: ' + error.message)
-    else { setCsMsg('Vínculo salvo!'); setCsForm({ campanha:'', subgrupo_produto:'' }); setTimeout(()=>window.location.reload(),600) }
+    else {
+      setCsMsg('Vínculo salvo!')
+      setCsForm({ campanha:'', subgrupo_produto:'' })
+      setTimeout(() => window.location.reload(), 600)
+    }
   }
   async function deleteCampanhaSubgrupo(id: number) {
     if (!confirm('Remover?')) return
@@ -107,16 +121,27 @@ export default function Configuracoes({ periodo }: Props) {
     window.location.reload()
   }
 
-  // ── Metas ────────────────────────────────────────────────
-  const [metas, setMetas] = useState(() => { try { return JSON.parse(localStorage.getItem('stonni_metas')||'{}') } catch { return {} } })
+  // ── metas ────────────────────────────────────────────────
+  const [metas, setMetas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('stonni_metas')||'{}') } catch { return {} }
+  })
   const [metasMsg, setMetasMsg] = useState('')
-  function saveMetas() { localStorage.setItem('stonni_metas', JSON.stringify(metas)); setMetasMsg('Salvas!'); setTimeout(()=>setMetasMsg(''),2000) }
+  function saveMetas() {
+    localStorage.setItem('stonni_metas', JSON.stringify(metas))
+    setMetasMsg('Salvas!'); setTimeout(() => setMetasMsg(''), 2000)
+  }
 
-  const [periodoDefault, setPeriodoDefault] = useState(() => localStorage.getItem('stonni_periodo_default')||'mes_atual')
-  function savePeriodo(v: string) { setPeriodoDefault(v); localStorage.setItem('stonni_periodo_default', v) }
+  const [periodoDefault, setPeriodoDefault] = useState(
+    () => localStorage.getItem('stonni_periodo_default')||'mes_atual'
+  )
+  function savePeriodo(v: string) {
+    setPeriodoDefault(v); localStorage.setItem('stonni_periodo_default', v)
+  }
   const PERIODOS = [
-    { value:'mes_atual', label:'Mês atual' }, { value:'mes_anterior', label:'Mês anterior' },
-    { value:'3_meses', label:'Últimos 3 meses' }, { value:'6_meses', label:'Últimos 6 meses' },
+    { value:'mes_atual', label:'Mês atual' },
+    { value:'mes_anterior', label:'Mês anterior' },
+    { value:'3_meses', label:'Últimos 3 meses' },
+    { value:'6_meses', label:'Últimos 6 meses' },
   ]
 
   return (
@@ -126,10 +151,9 @@ export default function Configuracoes({ periodo }: Props) {
       {/* ══════════ VENDEDORES ══════════ */}
       <SectionLabel>Vendedores — vínculo Umbler ↔ ERP</SectionLabel>
 
-      {/* Tabela de IDs Umbler ativos no período */}
       <Card style={{ marginBottom:16 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-          <CardTitle>IDs Umbler no período selecionado</CardTitle>
+          <CardTitle>IDs Umbler ativos no período</CardTitle>
           <span style={{ fontSize:11, color:'var(--text-hint)' }}>
             {leadsIds ? `${leadsIds.length} IDs detectados` : ''}
           </span>
@@ -139,8 +163,8 @@ export default function Configuracoes({ periodo }: Props) {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr>
-                  {['ID Umbler','Nome detectado','Leads no período','Último lead','Vínculo ERP',''].map((h,i) => (
-                    <th key={i} style={{...th, textAlign: i>=2?'right':'left'}}>{h}</th>
+                  {['ID Umbler','Nome detectado','Leads','Último lead','Vínculo ERP',''].map((h,i) => (
+                    <th key={i} style={{...th, textAlign:i>=2?'right':'left'}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -149,23 +173,24 @@ export default function Configuracoes({ periodo }: Props) {
                   const vinculo = vinculadosMap.get(item.id_umbler)
                   const semVinculo = !vinculo
                   return (
-                    <tr key={i} style={{ background: semVinculo ? '#FFFBEB' : 'transparent', borderBottom:'1px solid var(--border)' }}>
-                      <td style={{ ...td, fontFamily:'DM Mono', fontSize:11, color:'var(--text-muted)' }}>{item.id_umbler}</td>
-                      <td style={{ ...td, fontWeight: vinculo ? 500 : 400, color: semVinculo ? 'var(--amber)' : 'var(--text-primary)' }}>
-                        {vinculo ? vinculo.nome_vendedor_erp : (item.nome_umbler === item.id_umbler ? '–' : item.nome_umbler)}
+                    <tr key={i} style={{ background:semVinculo?'#FFFBEB':'transparent', borderBottom:'1px solid var(--border)' }}>
+                      <td style={{...td, fontFamily:'DM Mono', fontSize:11, color:'var(--text-muted)'}}>{item.id_umbler}</td>
+                      <td style={{...td, fontWeight:vinculo?500:400, color:semVinculo?'var(--amber)':'var(--text-primary)'}}>
+                        {vinculo ? vinculo.nome_vendedor_erp : (item.nome_umbler===item.id_umbler?'–':item.nome_umbler)}
                       </td>
-                      <td style={{ ...td, textAlign:'right', fontFamily:'DM Mono', fontWeight:600 }}>{item.leads_mes}</td>
-                      <td style={{ ...td, textAlign:'right', color:'var(--text-muted)', fontSize:11 }}>{item.ultimo_lead}</td>
-                      <td style={{ ...td, textAlign:'right' }}>
+                      <td style={{...td, textAlign:'right', fontFamily:'DM Mono', fontWeight:600}}>{item.leads_mes}</td>
+                      <td style={{...td, textAlign:'right', color:'var(--text-muted)', fontSize:11}}>{item.ultimo_lead}</td>
+                      <td style={{...td, textAlign:'right'}}>
                         {vinculo
-                          ? <><Badge value={`ERP ${vinculo.id_vendedor_erp}`} type="ok" /> <span style={{fontSize:11, color:'var(--text-muted)'}}>{vinculo.nome_vendedor_erp_completo || vinculo.nome_vendedor_erp}</span></>
+                          ? <><Badge value={`ERP ${vinculo.id_vendedor_erp}`} type="ok" />
+                              <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:4}}>{vinculo.nome_vendedor_erp}</span></>
                           : <Badge value="Sem vínculo" type="warn" />
                         }
                       </td>
-                      <td style={{ ...td, textAlign:'right' }}>
+                      <td style={{...td, textAlign:'right'}}>
                         {semVinculo && (
                           <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={() => preencherForm(item.id_umbler)}>
-                            <UserPlus size={12} /> Vincular
+                            <UserPlus size={12}/> Vincular
                           </button>
                         )}
                       </td>
@@ -178,58 +203,57 @@ export default function Configuracoes({ periodo }: Props) {
         )}
       </Card>
 
-      {/* Form cadastro */}
       <Card style={{ marginBottom:20 }} id="form-vendedor">
         <CardTitle>Cadastrar / atualizar vínculo</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:10, marginBottom:10 }}>
           <div>
             <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>ID Membro Umbler *</label>
             <input style={INPUT} placeholder="Ex: aW-xxzMMYu2X_QhY" value={vendForm.id_membro_umbler}
-              onChange={e => setVendForm(f => ({...f, id_membro_umbler:e.target.value}))} />
+              onChange={e => setVendForm(f=>({...f,id_membro_umbler:e.target.value}))}/>
           </div>
           <div>
             <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>Nome (display) *</label>
             <input style={INPUT} placeholder="Ex: FELIPE" value={vendForm.nome_vendedor_erp}
-              onChange={e => setVendForm(f => ({...f, nome_vendedor_erp:e.target.value}))} />
+              onChange={e => setVendForm(f=>({...f,nome_vendedor_erp:e.target.value}))}/>
           </div>
           <div>
             <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>ID Vendedor ERP *</label>
             <input style={INPUT} placeholder="Ex: 55351" type="number" value={vendForm.id_vendedor_erp}
-              onChange={e => setVendForm(f => ({...f, id_vendedor_erp:e.target.value}))} />
+              onChange={e => setVendForm(f=>({...f,id_vendedor_erp:e.target.value}))}/>
           </div>
           <div>
             <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>Nome completo ERP</label>
             <input style={INPUT} placeholder="Nome completo (opcional)" value={vendForm.nome_vendedor_erp_completo}
-              onChange={e => setVendForm(f => ({...f, nome_vendedor_erp_completo:e.target.value}))} />
+              onChange={e => setVendForm(f=>({...f,nome_vendedor_erp_completo:e.target.value}))}/>
           </div>
         </div>
         {vendMsg && <div style={{ fontSize:12, color:vendMsg.includes('Erro')?'var(--red)':'var(--green)', marginBottom:8 }}>{vendMsg}</div>}
         <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveVendedor} disabled={vendSaving}>
-          <Plus size={13} />{vendSaving ? 'Salvando…' : 'Salvar vínculo'}
+          <Plus size={13}/>{vendSaving?'Salvando…':'Salvar vínculo'}
         </button>
       </Card>
 
-      {/* Tabela vínculos cadastrados */}
       <Card style={{ marginBottom:28 }}>
         <CardTitle>Vínculos cadastrados</CardTitle>
         {lv ? <Spinner /> : (
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
             <thead>
-              <tr>{['ID Umbler','Nome ERP','ID ERP','Nome completo','Status','Ações'].map((h,i) => (
+              <tr>{['ID Umbler','Nome ERP','ID ERP','Nome completo','Status','Ações'].map((h,i)=>(
                 <th key={i} style={th}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
-              {(umblerVend||[]).map((v, i) => (
+              {(umblerVend||[]).map((v,i)=>(
                 <tr key={i} style={{ borderBottom:'1px solid var(--border)', opacity:v.ativo?1:0.5 }}>
-                  <td style={{...td, fontFamily:'DM Mono', fontSize:11, color:'var(--text-muted)'}}>{v.id_membro_umbler}</td>
-                  <td style={{...td, fontWeight:500}}>{v.nome_vendedor_erp}</td>
-                  <td style={{...td, fontFamily:'DM Mono'}}>{v.id_vendedor_erp}</td>
-                  <td style={{...td, color:'var(--text-muted)'}}>{v.nome_vendedor_erp_completo||'–'}</td>
-                  <td style={td}><Badge value={v.ativo?'Ativo':'Inativo'} type={v.ativo?'ok':'neutral'} /></td>
+                  <td style={{...td,fontFamily:'DM Mono',fontSize:11,color:'var(--text-muted)'}}>{v.id_membro_umbler}</td>
+                  <td style={{...td,fontWeight:500}}>{v.nome_vendedor_erp}</td>
+                  <td style={{...td,fontFamily:'DM Mono'}}>{v.id_vendedor_erp}</td>
+                  <td style={{...td,color:'var(--text-muted)'}}>{v.nome_vendedor_erp_completo||'–'}</td>
+                  <td style={td}><Badge value={v.ativo?'Ativo':'Inativo'} type={v.ativo?'ok':'neutral'}/></td>
                   <td style={td}>
                     <div style={{ display:'flex', gap:6 }}>
-                      <button style={BTN(v.ativo?'var(--amber)':'var(--green)', v.ativo?'var(--amber-bg)':'var(--green-bg)')} onClick={()=>toggleVendedor(v.id_membro_umbler,v.ativo)}>
+                      <button style={BTN(v.ativo?'var(--amber)':'var(--green)',v.ativo?'var(--amber-bg)':'var(--green-bg)')}
+                        onClick={()=>toggleVendedor(v.id_membro_umbler,v.ativo)}>
                         {v.ativo?'Desativar':'Ativar'}
                       </button>
                       <button style={BTN('var(--red)','var(--red-bg)')} onClick={()=>deleteVendedor(v.id_membro_umbler)}>
@@ -246,35 +270,43 @@ export default function Configuracoes({ periodo }: Props) {
 
       {/* ══════════ CAMPANHA × SUBGRUPO ══════════ */}
       <SectionLabel>Campanhas × Subgrupos de produto</SectionLabel>
+
       <Card style={{ marginBottom:16 }}>
         <CardTitle>Vincular campanha a subgrupo</CardTitle>
         <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12, lineHeight:1.6 }}>
-          Associe uma campanha Meta Ads a um subgrupo do ERP. Campanhas já vinculadas não aparecem no select.
+          Associe cada campanha ativa ao subgrupo de produto do ERP. Isso cruza investimento com faturamento na aba Campanhas.
+          Campanhas já vinculadas somem automaticamente do select.
         </p>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:10, alignItems:'flex-end' }}>
           <div>
-            <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>Campanha *</label>
-            <select style={INPUT} value={csForm.campanha} onChange={e => setCsForm(f=>({...f,campanha:e.target.value}))}>
-              <option value="">Selecione a campanha…</option>
+            <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>
+              Campanha * <span style={{ fontWeight:400, color:'var(--text-hint)' }}>(ativas nos últimos 30 dias, sem vínculo)</span>
+            </label>
+            <select style={INPUT} value={csForm.campanha} onChange={e=>setCsForm(f=>({...f,campanha:e.target.value}))}>
+              <option value="">
+                {campanhasDisponiveis.length === 0
+                  ? 'Todas as campanhas ativas já estão vinculadas ✅'
+                  : `Selecione (${campanhasDisponiveis.length} disponíveis)…`}
+              </option>
               {campanhasDisponiveis.map(c => (
                 <option key={c} value={c}>{c.length>70?c.slice(0,70)+'…':c}</option>
               ))}
             </select>
             {campanhasJaVinculadas.size > 0 && (
-              <div style={{ fontSize:11, color:'var(--text-hint)', marginTop:4 }}>
-                {campanhasJaVinculadas.size} campanha(s) já vinculada(s) ocultada(s)
+              <div style={{ fontSize:11, color:'var(--green)', marginTop:4 }}>
+                ✅ {campanhasJaVinculadas.size} campanha(s) já vinculada(s) e ocultadas do select
               </div>
             )}
           </div>
           <div>
             <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>Subgrupo de produto *</label>
-            <select style={INPUT} value={csForm.subgrupo_produto} onChange={e => setCsForm(f=>({...f,subgrupo_produto:e.target.value}))}>
+            <select style={INPUT} value={csForm.subgrupo_produto} onChange={e=>setCsForm(f=>({...f,subgrupo_produto:e.target.value}))}>
               <option value="">Selecione o subgrupo…</option>
               {(subgruposERP||[]).map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
-            <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveCampanhaSubgrupo} disabled={csSaving}>
+            <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveCampanhaSubgrupo} disabled={csSaving||!csForm.campanha||!csForm.subgrupo_produto}>
               <Plus size={13}/>{csSaving?'Salvando…':'Vincular'}
             </button>
           </div>
@@ -284,22 +316,26 @@ export default function Configuracoes({ periodo }: Props) {
 
       <Card style={{ marginBottom:28 }}>
         <CardTitle>Vínculos campanha × subgrupo cadastrados</CardTitle>
-        {lcs ? <Spinner /> : (
+        {lcs ? <Spinner /> : campSub?.length === 0 ? (
+          <p style={{ fontSize:12, color:'var(--text-hint)', padding:'12px 0' }}>Nenhum vínculo cadastrado ainda.</p>
+        ) : (
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
             <thead>
-              <tr>{['Campanha','Subgrupo','Criado em',''].map((h,i) => (
-                <th key={i} style={{...th, textAlign:i<2?'left':'right'}}>{h}</th>
+              <tr>{['Campanha','Subgrupo','Criado em',''].map((h,i)=>(
+                <th key={i} style={{...th,textAlign:i<2?'left':'right'}}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
-              {(campSub||[]).map((cs,i) => (
+              {(campSub||[]).map((cs,i)=>(
                 <tr key={i} style={{ borderBottom:'1px solid var(--border)' }}>
-                  <td style={{...td, maxWidth:380}}>
+                  <td style={{...td,maxWidth:380}}>
                     <span style={{ fontSize:11 }}>{cs.campanha.length>65?cs.campanha.slice(0,65)+'…':cs.campanha}</span>
                   </td>
                   <td style={td}><Badge value={cs.subgrupo_produto} type="info"/></td>
-                  <td style={{...td, textAlign:'right', color:'var(--text-hint)', fontSize:11}}>{new Date(cs.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td style={{...td, textAlign:'right'}}>
+                  <td style={{...td,textAlign:'right',color:'var(--text-hint)',fontSize:11}}>
+                    {new Date(cs.created_at).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td style={{...td,textAlign:'right'}}>
                     <button style={BTN('var(--red)','var(--red-bg)')} onClick={()=>deleteCampanhaSubgrupo(cs.id)}>
                       <Trash2 size={12}/>
                     </button>
@@ -317,17 +353,17 @@ export default function Configuracoes({ periodo }: Props) {
         <CardTitle>Defina seus objetivos</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
           {[
-            { key:'fat_mensal', label:'Meta faturamento mensal (R$)', placeholder:'500000' },
-            { key:'roas_meta', label:'Meta de ROAS', placeholder:'40' },
-            { key:'conversao_meta', label:'Meta de conversão (%)', placeholder:'25' },
-            { key:'ticket_meta', label:'Meta ticket médio (R$)', placeholder:'5000' },
-            { key:'cpl_meta', label:'Meta CPL máximo (R$)', placeholder:'20' },
-            { key:'tempo_resposta_meta', label:'Meta tempo resposta (min)', placeholder:'15' },
-          ].map(({key, label, placeholder}) => (
+            {key:'fat_mensal',label:'Meta faturamento mensal (R$)',placeholder:'500000'},
+            {key:'roas_meta',label:'Meta de ROAS',placeholder:'40'},
+            {key:'conversao_meta',label:'Meta de conversão (%)',placeholder:'25'},
+            {key:'ticket_meta',label:'Meta ticket médio (R$)',placeholder:'5000'},
+            {key:'cpl_meta',label:'Meta CPL máximo (R$)',placeholder:'20'},
+            {key:'tempo_resposta_meta',label:'Meta tempo resposta (min)',placeholder:'15'},
+          ].map(({key,label,placeholder})=>(
             <div key={key}>
               <label style={{ fontSize:11, color:'var(--text-hint)', display:'block', marginBottom:4 }}>{label}</label>
               <input style={INPUT} type="number" placeholder={placeholder} value={metas[key]||''}
-                onChange={e => setMetas((m:any) => ({...m,[key]:e.target.value}))} />
+                onChange={e=>setMetas((m:any)=>({...m,[key]:e.target.value}))}/>
             </div>
           ))}
         </div>
@@ -343,13 +379,14 @@ export default function Configuracoes({ periodo }: Props) {
       <Card>
         <CardTitle>Filtro inicial</CardTitle>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          {PERIODOS.map(p => (
+          {PERIODOS.map(p=>(
             <button key={p.value} onClick={()=>savePeriodo(p.value)} style={{
               padding:'8px 16px', borderRadius:'var(--radius)',
               border:`1px solid ${periodoDefault===p.value?'var(--blue-dark)':'var(--border)'}`,
               background:periodoDefault===p.value?'var(--blue-dark)':'transparent',
               color:periodoDefault===p.value?'#fff':'var(--text-muted)',
-              fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans, sans-serif', transition:'all 0.15s',
+              fontSize:12, fontWeight:500, cursor:'pointer',
+              fontFamily:'DM Sans, sans-serif', transition:'all 0.15s',
             }}>{p.label}</button>
           ))}
         </div>
