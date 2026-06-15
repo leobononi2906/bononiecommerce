@@ -113,7 +113,7 @@ export default function Atendimento({ periodo }: Props) {
       <Row>
         <Col flex={6}>
           <Card>
-            <CardTitle>Leads por dia</CardTitle>
+            <CardTitle>Leads Umbler recebidos por dia <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— conversas iniciadas na Umbler</span></CardTitle>
             {lleads ? <Spinner /> : (
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={leadsPorDia} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
