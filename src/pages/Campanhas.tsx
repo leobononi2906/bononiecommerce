@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useMetaAds, useCampanhaSubgrupos, useOrigemLeads, useSubgrupos } from '../hooks/useData'
-import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
+import { KpiCard, Spinner, Card, CardTitle, SectionLabel, Badge } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/fmt'
 import type { Periodo } from '../types'
@@ -19,20 +19,10 @@ const COR: Record<string,string> = {
 interface Props { periodo: Periodo }
 
 export default function Campanhas({ periodo }: Props) {
-  const { data: metaAds,  loading: lmeta  } = useMetaAds(periodo)
-  const { data: campSub                   } = useCampanhaSubgrupos()
-  const { data: origem,   loading: lorigem } = useOrigemLeads(periodo)
-  const { data: subgrupos                 } = useSubgrupos(periodo)
-
-  // ── Mapa campanha → subgrupos vinculados ──────────────────
-  const campSubMap = useMemo(() => {
-    const m: Record<string, string[]> = {}
-    campSub?.forEach(cs => {
-      if (!m[cs.campanha]) m[cs.campanha] = []
-      m[cs.campanha].push(cs.subgrupo_produto)
-    })
-    return m
-  }, [campSub])
+  const { data: metaAds,  loading: lmeta   } = useMetaAds(periodo)
+  const { data: campSub                    } = useCampanhaSubgrupos()
+  const { data: origem,   loading: lorigem  } = useOrigemLeads(periodo)
+  const { data: subgrupos                  } = useSubgrupos(periodo)
 
   // ── Faturamento por subgrupo no período ───────────────────
   const fatPorSubgrupo = useMemo(() => {
@@ -58,7 +48,37 @@ export default function Campanhas({ periodo }: Props) {
     return { invest, leads, cpl, ctr, impres, clicks, pctInvestFat }
   }, [metaAds, fatTotal])
 
-  // ── Origem leads: por produto ─────────────────────────────
+  // ── Cruzamento: Subgrupo × Investimento × Faturamento ────
+  // Agrupa por subgrupo: soma investimento de todas campanhas vinculadas + faturamento do subgrupo no período
+  const porSubgrupo = useMemo(() => {
+    if (!campSub || !metaAds) return []
+
+    // Investimento Meta por campanha no período
+    const investPorCamp = new Map<string, number>()
+    metaAds.forEach(r => investPorCamp.set(r.campanha, (investPorCamp.get(r.campanha)||0) + r.investimento))
+
+    // Agrupa por subgrupo
+    const map = new Map<string, { campanhas: string[]; investimento: number }>()
+    campSub.forEach(cs => {
+      const cur = map.get(cs.subgrupo_produto) || { campanhas:[], investimento:0 }
+      if (!cur.campanhas.includes(cs.campanha)) {
+        cur.campanhas.push(cs.campanha)
+        cur.investimento += investPorCamp.get(cs.campanha) || 0
+      }
+      map.set(cs.subgrupo_produto, cur)
+    })
+
+    return [...map.entries()]
+      .map(([subgrupo, d]) => {
+        const faturamento = fatPorSubgrupo.get(subgrupo) || 0
+        const pct = faturamento > 0 ? (d.investimento / faturamento) * 100 : 0
+        return { subgrupo, investimento: d.investimento, faturamento, pct, campanhas: d.campanhas.length }
+      })
+      .filter(r => r.investimento > 0 || r.faturamento > 0)
+      .sort((a,b) => b.faturamento - a.faturamento)
+  }, [campSub, metaAds, fatPorSubgrupo])
+
+  // ── Origem leads por produto ──────────────────────────────
   const porProduto = useMemo(() => {
     if (!origem) return []
     const map = new Map<string,{leads:number;investimento:number}>()
@@ -72,7 +92,13 @@ export default function Campanhas({ periodo }: Props) {
       .sort((a,b)=>b.leads-a.leads)
   }, [origem])
 
-  // ── Origem leads: por campanha com subgrupo vinculado ─────
+  // ── Origem leads por campanha ─────────────────────────────
+  const campSubMap = useMemo(() => {
+    const m: Record<string, string[]> = {}
+    campSub?.forEach(cs => { if(!m[cs.campanha]) m[cs.campanha]=[]; m[cs.campanha].push(cs.subgrupo_produto) })
+    return m
+  }, [campSub])
+
   const porCampanha = useMemo(() => {
     if (!origem) return []
     const map = new Map<string,{produto:string;leads:number;investimento:number}>()
@@ -83,50 +109,13 @@ export default function Campanhas({ periodo }: Props) {
     })
     return [...map.entries()]
       .map(([campanha,d]) => ({
-        campanha,
-        short: shortCamp(campanha),
-        produto: d.produto,
+        campanha, short: shortCamp(campanha), produto: d.produto,
         subgrupos: campSubMap[campanha] || [],
-        leads: d.leads,
-        investimento: d.investimento,
+        leads: d.leads, investimento: d.investimento,
         cpl: d.leads>0 ? d.investimento/d.leads : 0,
       }))
-      .sort((a,b)=>b.leads-a.leads)
-      .slice(0, 15)
+      .sort((a,b)=>b.leads-a.leads).slice(0,15)
   }, [origem, campSubMap])
-
-  // ── Cruzamento investimento × faturamento por subgrupo ────
-  // Para cada campanha vinculada: mostra investimento Meta + faturamento ERP do subgrupo
-  const cruzamento = useMemo(() => {
-    if (!campSub || !metaAds) return []
-
-    // Investimento Meta por campanha no período
-    const investPorCamp = new Map<string, number>()
-    metaAds.forEach(r => investPorCamp.set(r.campanha, (investPorCamp.get(r.campanha)||0) + r.investimento))
-
-    // Agrupa por campanha: investimento + faturamento dos subgrupos
-    const map = new Map<string, { subgrupos: string[]; investimento: number; faturamento: number }>()
-    campSub.forEach(cs => {
-      const cur = map.get(cs.campanha) || { subgrupos:[], investimento:0, faturamento:0 }
-      if (!cur.subgrupos.includes(cs.subgrupo_produto)) cur.subgrupos.push(cs.subgrupo_produto)
-      cur.investimento = investPorCamp.get(cs.campanha) || 0
-      cur.faturamento += fatPorSubgrupo.get(cs.subgrupo_produto) || 0
-      map.set(cs.campanha, cur)
-    })
-
-    return [...map.entries()]
-      .map(([campanha, d]) => ({
-        campanha,
-        short: shortCamp(campanha),
-        subgrupos: d.subgrupos,
-        investimento: d.investimento,
-        faturamento: d.faturamento,
-        roas: d.investimento > 0 ? d.faturamento / d.investimento : 0,
-        pctInvest: d.faturamento > 0 ? (d.investimento / d.faturamento) * 100 : 0,
-      }))
-      .filter(r => r.investimento > 0 || r.faturamento > 0)
-      .sort((a,b) => b.faturamento - a.faturamento)
-  }, [campSub, metaAds, fatPorSubgrupo])
 
   // ── Gráfico diário ────────────────────────────────────────
   const dailyData = useMemo(() => {
@@ -140,12 +129,12 @@ export default function Campanhas({ periodo }: Props) {
     return [...map.entries()].sort().map(([data,d])=>({data:data.slice(5),...d}))
   }, [metaAds])
 
-  const totalLeads    = porProduto.reduce((s,r)=>s+r.leads,0)
-  const totalInvest   = porProduto.reduce((s,r)=>s+r.investimento,0)
+  const totalLeads  = porProduto.reduce((s,r)=>s+r.leads,0)
+  const totalInvest = porProduto.reduce((s,r)=>s+r.investimento,0)
 
   if (lmeta) return <Spinner />
 
-  const th: React.CSSProperties = { textAlign:'left', padding:'8px 12px', fontSize:11, color:'var(--text-hint)', fontWeight:600, borderBottom:'1px solid var(--border)', textTransform:'uppercase', whiteSpace:'nowrap', background:'var(--surface)' }
+  const th: React.CSSProperties = { textAlign:'left', padding:'8px 12px', fontSize:11, color:'var(--text-hint)', fontWeight:600, borderBottom:'1px solid var(--border)', textTransform:'uppercase', whiteSpace:'nowrap' }
   const td: React.CSSProperties = { padding:'8px 12px', fontSize:13, borderBottom:'1px solid var(--border)' }
   const tdR: React.CSSProperties = { ...td, textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600 }
 
@@ -161,9 +150,72 @@ export default function Campanhas({ periodo }: Props) {
         <KpiCard label="% Invest / Fat"
           value={kpis?.pctInvestFat != null ? fmtPct(kpis.pctInvestFat,1) : '–'}
           sub={kpis?.pctInvestFat != null ? (kpis.pctInvestFat < 15 ? '✅ saudável' : '⚠️ alto') : undefined} />
-        <KpiCard label="Leads Meta"         value={fmtNum(kpis?.leads)} sub={kpis?.cpl ? `CPL: ${fmtBRL(kpis.cpl)}` : undefined} />
-        <KpiCard label="CTR médio"          value={fmtPct(kpis?.ctr,2)} />
+        <KpiCard label="Leads Meta"  value={fmtNum(kpis?.leads)} sub={kpis?.cpl ? `CPL: ${fmtBRL(kpis.cpl)}` : undefined} />
+        <KpiCard label="CTR médio"   value={fmtPct(kpis?.ctr,2)} />
       </KpiGrid>
+
+      {/* ── Cruzamento Subgrupo × Investimento × Faturamento ── */}
+      <SectionLabel>Investimento × Faturamento por subgrupo</SectionLabel>
+      {porSubgrupo.length === 0 ? (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:24, marginBottom:20, textAlign:'center', color:'var(--text-hint)', fontSize:13 }}>
+          Vincule campanhas a subgrupos em <strong>Configurações</strong> para ver o cruzamento aqui.
+        </div>
+      ) : (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', marginBottom:20, overflow:'hidden' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead><tr>
+              <th style={th}>Subgrupo</th>
+              <th style={{...th, textAlign:'right'}}>Total investido</th>
+              <th style={{...th, textAlign:'right'}}>Total faturado</th>
+              <th style={{...th, textAlign:'right'}}>% Invest/Fat</th>
+              <th style={{...th, textAlign:'right'}}>ROAS</th>
+            </tr></thead>
+            <tbody>
+              {porSubgrupo.map((r,i) => {
+                const roas = r.investimento > 0 ? r.faturamento / r.investimento : 0
+                const pctOk = r.pct < 30
+                const roasOk = roas >= 3
+                return (
+                  <tr key={i} style={{ background:i%2===0?'transparent':'#FAFBFC', borderBottom:'1px solid var(--border)' }}>
+                    <td style={{...td, fontWeight:600}}>
+                      <Badge value={r.subgrupo} type="info"/>
+                      <span style={{ fontSize:11, color:'var(--text-hint)', marginLeft:8 }}>{r.campanhas} campanha(s)</span>
+                    </td>
+                    <td style={tdR}>{fmtBRL(r.investimento)}</td>
+                    <td style={{...tdR, fontSize:15, color:'var(--blue-dark)'}}>{fmtBRL(r.faturamento)}</td>
+                    <td style={{...tdR, color: r.pct===0?'var(--text-hint)':pctOk?'var(--green)':'var(--amber)'}}>
+                      {r.pct > 0 ? fmtPct(r.pct,1) : '–'}
+                    </td>
+                    <td style={{...tdR, color: roas===0?'var(--text-hint)':roasOk?'var(--green)':'var(--red)'}}>
+                      {roas > 0 ? `${roas.toFixed(1)}x` : '–'}
+                    </td>
+                  </tr>
+                )
+              })}
+              {/* Totais */}
+              <tr style={{ background:'#EFF6FF', borderTop:'2px solid var(--border)' }}>
+                <td style={{...td, fontWeight:700, color:'var(--blue-dark)'}}>Total</td>
+                <td style={{...tdR, fontWeight:700}}>{fmtBRL(porSubgrupo.reduce((s,r)=>s+r.investimento,0))}</td>
+                <td style={{...tdR, fontWeight:700, fontSize:15, color:'var(--blue-dark)'}}>{fmtBRL(porSubgrupo.reduce((s,r)=>s+r.faturamento,0))}</td>
+                <td style={{...tdR, fontWeight:700, color:'var(--text-primary)'}}>
+                  {(() => {
+                    const ti = porSubgrupo.reduce((s,r)=>s+r.investimento,0)
+                    const tf = porSubgrupo.reduce((s,r)=>s+r.faturamento,0)
+                    return tf>0 ? fmtPct((ti/tf)*100,1) : '–'
+                  })()}
+                </td>
+                <td style={{...tdR, fontWeight:700, color:'var(--green)'}}>
+                  {(() => {
+                    const ti = porSubgrupo.reduce((s,r)=>s+r.investimento,0)
+                    const tf = porSubgrupo.reduce((s,r)=>s+r.faturamento,0)
+                    return ti>0 ? `${(tf/ti).toFixed(1)}x` : '–'
+                  })()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ── Origem dos leads por produto ── */}
       <SectionLabel>Origem dos leads — atribuição TinTim</SectionLabel>
@@ -188,131 +240,52 @@ export default function Campanhas({ periodo }: Props) {
             ))}
           </KpiGrid>
 
-          {/* Tabela por campanha — coluna subgrupo em vez de produto */}
+          {/* Ranking campanhas com subgrupo */}
           {porCampanha.length > 0 && (
             <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', marginBottom:20, overflow:'hidden' }}>
               <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <span style={{ fontSize:13, fontWeight:600 }}>Ranking de campanhas — leads atribuídos</span>
                 <span style={{ fontSize:11, color:'var(--text-muted)' }}>{fmtNum(totalLeads)} leads · {fmtBRL(totalInvest)}</span>
               </div>
-              <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                  <thead><tr>
-                    <th style={th}>Campanha</th>
-                    <th style={th}>Subgrupo vinculado</th>
-                    <th style={{...th,textAlign:'right'}}>Leads</th>
-                    <th style={{...th,textAlign:'right'}}>Invest.</th>
-                    <th style={{...th,textAlign:'right'}}>CPL</th>
-                    <th style={{...th,textAlign:'right'}}>Share</th>
-                  </tr></thead>
-                  <tbody>
-                    {porCampanha.map((c,i) => (
-                      <tr key={i} style={{ background:i%2===0?'transparent':'#FAFBFC' }}>
-                        <td style={{...td, maxWidth:260}}>
-                          <span style={{ fontSize:12, fontWeight:500 }}>{c.short}</span>
-                        </td>
-                        <td style={td}>
-                          {c.subgrupos.length > 0
-                            ? c.subgrupos.map(s => <Badge key={s} value={s} type="info"/>)
-                            : <span style={{ fontSize:11, color:'var(--text-hint)', fontStyle:'italic' }}>Não vinculado — configure em Configurações</span>
-                          }
-                        </td>
-                        <td style={tdR}>{fmtNum(c.leads)}</td>
-                        <td style={tdR}>{c.investimento>0?fmtBRL(c.investimento):'–'}</td>
-                        <td style={tdR}>{c.cpl>0?fmtBRL(c.cpl):'–'}</td>
-                        <td style={tdR}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
-                            <div style={{ width:48, height:4, background:'#F1F5F9', borderRadius:2, overflow:'hidden' }}>
-                              <div style={{ height:'100%', background:'var(--blue-mid)', borderRadius:2, width:totalLeads>0?`${Math.min(c.leads/totalLeads*100,100)}%`:'0%' }}/>
-                            </div>
-                            <span style={{ fontSize:12, minWidth:32, textAlign:'right' }}>{totalLeads>0?fmtPct(c.leads/totalLeads*100):'–'}</span>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead><tr>
+                  <th style={th}>Campanha</th>
+                  <th style={th}>Subgrupo vinculado</th>
+                  <th style={{...th,textAlign:'right'}}>Leads</th>
+                  <th style={{...th,textAlign:'right'}}>Invest.</th>
+                  <th style={{...th,textAlign:'right'}}>CPL</th>
+                  <th style={{...th,textAlign:'right'}}>Share</th>
+                </tr></thead>
+                <tbody>
+                  {porCampanha.map((c,i) => (
+                    <tr key={i} style={{ background:i%2===0?'transparent':'#FAFBFC' }}>
+                      <td style={{...td,maxWidth:260}}><span style={{ fontSize:12, fontWeight:500 }}>{c.short}</span></td>
+                      <td style={td}>
+                        {c.subgrupos.length > 0
+                          ? c.subgrupos.map(s => <Badge key={s} value={s} type="info"/>)
+                          : <span style={{ fontSize:11, color:'var(--text-hint)', fontStyle:'italic' }}>Não vinculado</span>}
+                      </td>
+                      <td style={tdR}>{fmtNum(c.leads)}</td>
+                      <td style={tdR}>{c.investimento>0?fmtBRL(c.investimento):'–'}</td>
+                      <td style={tdR}>{c.cpl>0?fmtBRL(c.cpl):'–'}</td>
+                      <td style={tdR}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
+                          <div style={{ width:48, height:4, background:'#F1F5F9', borderRadius:2, overflow:'hidden' }}>
+                            <div style={{ height:'100%', background:'var(--blue-mid)', borderRadius:2, width:totalLeads>0?`${Math.min(c.leads/totalLeads*100,100)}%`:'0%' }}/>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          <span style={{ fontSize:12, minWidth:32, textAlign:'right' }}>{totalLeads>0?fmtPct(c.leads/totalLeads*100):'–'}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>
       )}
 
-      {/* ── Cruzamento Investimento × Faturamento por subgrupo ── */}
-      <SectionLabel>Investimento Meta × Faturamento ERP por subgrupo</SectionLabel>
-      {cruzamento.length === 0 ? (
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'24px', marginBottom:20, textAlign:'center', color:'var(--text-hint)', fontSize:13 }}>
-          Vincule campanhas a subgrupos em <strong>Configurações → Campanhas × Subgrupos</strong> para ver o cruzamento aqui.
-        </div>
-      ) : (
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', marginBottom:20, overflow:'hidden' }}>
-          <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:13, fontWeight:600 }}>Campanha × faturamento do subgrupo vinculado</span>
-            <span style={{ fontSize:11, color:'var(--text-muted)' }}>excluindo marketplace · período selecionado</span>
-          </div>
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse' }}>
-              <thead><tr>
-                <th style={th}>Campanha</th>
-                <th style={th}>Subgrupo</th>
-                <th style={{...th,textAlign:'right'}}>Investimento</th>
-                <th style={{...th,textAlign:'right'}}>Faturamento subgrupo</th>
-                <th style={{...th,textAlign:'right'}}>ROAS</th>
-                <th style={{...th,textAlign:'right'}}>% Invest/Fat</th>
-              </tr></thead>
-              <tbody>
-                {cruzamento.map((c,i) => {
-                  const roasOk = c.roas >= 3
-                  const pctOk  = c.pctInvest < 30
-                  return (
-                    <tr key={i} style={{ background:i%2===0?'transparent':'#FAFBFC', borderBottom:'1px solid var(--border)' }}>
-                      <td style={{...td, maxWidth:280, fontSize:12}}>{c.short}</td>
-                      <td style={td}>
-                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                          {c.subgrupos.map(s => <Badge key={s} value={s} type="info"/>)}
-                        </div>
-                      </td>
-                      <td style={tdR}>{c.investimento>0 ? fmtBRL(c.investimento) : '–'}</td>
-                      <td style={{...tdR, fontSize:14, color:'var(--blue-dark)'}}>
-                        {c.faturamento>0 ? fmtBRL(c.faturamento) : '–'}
-                      </td>
-                      <td style={{...tdR, color: c.roas===0?'var(--text-hint)':roasOk?'var(--green)':'var(--red)'}}>
-                        {c.roas > 0 ? `${c.roas.toFixed(1)}x` : '–'}
-                      </td>
-                      <td style={{...tdR, color: c.pctInvest===0?'var(--text-hint)':pctOk?'var(--green)':'var(--amber)'}}>
-                        {c.pctInvest > 0 ? fmtPct(c.pctInvest,1) : '–'}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {/* Totais */}
-                <tr style={{ background:'#F8FAFC', fontWeight:700 }}>
-                  <td style={{...td, fontWeight:700}}>Total</td>
-                  <td style={td}/>
-                  <td style={{...tdR, fontWeight:700}}>{fmtBRL(cruzamento.reduce((s,r)=>s+r.investimento,0))}</td>
-                  <td style={{...tdR, fontWeight:700, fontSize:14, color:'var(--blue-dark)'}}>{fmtBRL(cruzamento.reduce((s,r)=>s+r.faturamento,0))}</td>
-                  <td style={{...tdR, color:'var(--text-muted)'}}>
-                    {(() => {
-                      const ti = cruzamento.reduce((s,r)=>s+r.investimento,0)
-                      const tf = cruzamento.reduce((s,r)=>s+r.faturamento,0)
-                      return ti>0 ? `${(tf/ti).toFixed(1)}x` : '–'
-                    })()}
-                  </td>
-                  <td style={{...tdR, color:'var(--text-muted)'}}>
-                    {(() => {
-                      const ti = cruzamento.reduce((s,r)=>s+r.investimento,0)
-                      const tf = cruzamento.reduce((s,r)=>s+r.faturamento,0)
-                      return tf>0 ? fmtPct((ti/tf)*100,1) : '–'
-                    })()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── Meta Ads: funil + gráfico diário ── */}
+      {/* ── Meta Ads: funil + gráfico ── */}
       <SectionLabel>Performance Meta Ads</SectionLabel>
       <Row>
         <Col flex={5}>
