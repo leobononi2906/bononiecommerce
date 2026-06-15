@@ -167,6 +167,19 @@ export function useUmblerVendedores() {
   }, [])
 }
 
+// IDs internos (mkt, admin) — para exclusão nas visualizações
+export function useInternos() {
+  return useQuery<Set<string>>(async () => {
+    const { data, error } = await supabase
+      .from('ecom_umbler_vendedor')
+      .select('id_membro_umbler')
+      .eq('interno', true)
+      .range(0, 999)
+    if (error) throw error
+    return new Set((data||[]).map((r:any) => r.id_membro_umbler as string))
+  }, [])
+}
+
 export function useCampanhaSubgrupos() {
   return useQuery<EcomCampanhaSubgrupo[]>(async () => {
     const { data, error } = await supabase.from('ecom_campanha_subgrupo').select('*').range(0,9999)
@@ -189,20 +202,25 @@ export function useLeads(periodo: Periodo) {
   }, [start, end])
 }
 
-// IDs Umbler que chegaram no período (com ou sem vínculo)
+// IDs Umbler que chegaram no período (com ou sem vínculo), excluindo internos
 export function useLeadsUmblerIds(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<{ id_umbler: string; nome_umbler: string; leads_mes: number; ultimo_lead: string }[]>(async () => {
-    const { data, error } = await supabase
-      .from('ecom_leads')
-      .select('id_vendedor,nome_vendedor,criado_em')
-      .gte('criado_em', start+'T00:00:00')
-      .lte('criado_em', end+'T23:59:59')
-      .not('id_vendedor', 'is', null)
-      .range(0, 9999)
+    // Busca internos e leads em paralelo
+    const [{ data: internosData }, { data, error }] = await Promise.all([
+      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler').eq('interno', true).range(0,999),
+      supabase.from('ecom_leads')
+        .select('id_vendedor,nome_vendedor,criado_em')
+        .gte('criado_em', start+'T00:00:00')
+        .lte('criado_em', end+'T23:59:59')
+        .not('id_vendedor', 'is', null)
+        .range(0, 9999)
+    ])
     if (error) throw error
+    const internos = new Set((internosData||[]).map((r:any) => r.id_membro_umbler as string))
     const map = new Map<string,{nome:string; count:number; ultimo:string}>()
     ;(data||[]).forEach((r:any) => {
+      if (internos.has(r.id_vendedor)) return // ignora internos
       const cur = map.get(r.id_vendedor) || { nome: r.nome_vendedor || r.id_vendedor, count: 0, ultimo: '' }
       cur.count++
       if (r.criado_em > cur.ultimo) cur.ultimo = r.criado_em
