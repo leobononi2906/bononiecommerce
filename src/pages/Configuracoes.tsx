@@ -87,6 +87,10 @@ export default function Configuracoes({ periodo }: Props) {
     await supabase.from('ecom_umbler_vendedor').update({ ativo: !ativo }).eq('id_membro_umbler', id)
     window.location.reload()
   }
+  async function toggleInterno(id: string, interno: boolean) {
+    await supabase.from('ecom_umbler_vendedor').update({ interno: !interno }).eq('id_membro_umbler', id)
+    window.location.reload()
+  }
   async function deleteVendedor(id: string) {
     if (!confirm('Remover este vínculo?')) return
     await supabase.from('ecom_umbler_vendedor').delete().eq('id_membro_umbler', id)
@@ -238,7 +242,7 @@ export default function Configuracoes({ periodo }: Props) {
         {lv ? <Spinner /> : (
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
             <thead>
-              <tr>{['ID Umbler','Nome ERP','ID ERP','Nome completo','Status','Ações'].map((h,i)=>(
+              <tr>{['ID Umbler','Nome ERP','ID ERP','Nome completo','Status','Interno','Ações'].map((h,i)=>(
                 <th key={i} style={th}>{h}</th>
               ))}</tr>
             </thead>
@@ -250,6 +254,14 @@ export default function Configuracoes({ periodo }: Props) {
                   <td style={{...td,fontFamily:'DM Mono'}}>{v.id_vendedor_erp}</td>
                   <td style={{...td,color:'var(--text-muted)'}}>{v.nome_vendedor_erp_completo||'–'}</td>
                   <td style={td}><Badge value={v.ativo?'Ativo':'Inativo'} type={v.ativo?'ok':'neutral'}/></td>
+                  <td style={td}>
+                    <button
+                      onClick={()=>toggleInterno(v.id_membro_umbler, (v as any).interno||false)}
+                      title={(v as any).interno ? 'Clique para marcar como vendedor' : 'Clique para marcar como interno'}
+                      style={{ ...BTN((v as any).interno?'var(--amber)':'var(--text-hint)', (v as any).interno?'var(--amber-bg)':'#F1F5F9'), fontSize:11 }}>
+                      {(v as any).interno ? '🔧 Interno' : '–'}
+                    </button>
+                  </td>
                   <td style={td}>
                     <div style={{ display:'flex', gap:6 }}>
                       <button style={BTN(v.ativo?'var(--amber)':'var(--green)',v.ativo?'var(--amber-bg)':'var(--green-bg)')}
