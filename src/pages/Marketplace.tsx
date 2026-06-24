@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Settings, Plus, RefreshCw, AlertTriangle, CheckCircle, XCircle, Package, Pencil, Save, X } from 'lucide-react'
+import { Settings, Plus, RefreshCw, AlertTriangle, CheckCircle, XCircle, Package, Pencil, Save, X, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { fmtNum } from '../lib/fmt'
 import type { Periodo } from '../types'
@@ -42,6 +42,7 @@ export default function Marketplace(_props:{periodo?:Periodo}) {
   const [novoItem,setNovoItem] = useState<NovoItem>({referencia:'',nome_produto:'',id_anuncio_ml:'',estoque_inicial:'',estoque_minimo:'5',media_diaria_manual:''})
   const [ajustando,setAjustando] = useState<{id:number;campo:'estoque'|'media'}|null>(null)
   const [ajusteVal,setAjusteVal] = useState('')
+  const [confirmDelete,setConfirmDelete] = useState<number|null>(null)
 
   const carregar = useCallback(async()=>{
     setLoading(true);setErro(null)
@@ -91,6 +92,11 @@ export default function Marketplace(_props:{periodo?:Periodo}) {
       await supabase.from('ml_full_estoque').update({media_diaria_manual:v,atualizado_em:new Date().toISOString()}).eq('id',it.id)
     }
     setAjustando(null);setAjusteVal('');carregar()
+  }
+  async function excluirProduto(it:PainelItem){
+    await supabase.from('ml_full_movimentacoes').delete().eq('id_conta',it.id_conta).eq('referencia',it.referencia)
+    await supabase.from('ml_full_estoque').delete().eq('id',it.id)
+    setConfirmDelete(null);carregar()
   }
 
   const th:React.CSSProperties={textAlign:'left',padding:'10px 12px',background:C.blueDark,color:'#fff',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px',position:'sticky',top:0,whiteSpace:'nowrap',...font}
@@ -244,6 +250,13 @@ export default function Marketplace(_props:{periodo?:Periodo}) {
                         <div style={{display:'flex',gap:4}}>
                           <button onClick={()=>{setAjustando({id:i.id,campo:'estoque'});setAjusteVal('')}} title="Ajustar estoque" style={{padding:'4px 8px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:11,cursor:'pointer',...font}}>Est.</button>
                           <button onClick={()=>{setAjustando({id:i.id,campo:'media'});setAjusteVal(String(i.media_diaria_manual??''))}} title="Editar venda média" style={{padding:'4px 8px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:11,cursor:'pointer',...font}}>Média</button>
+                          {confirmDelete===i.id
+                            ?<div style={{display:'flex',gap:3,alignItems:'center'}}>
+                              <span style={{fontSize:11,color:C.red,fontWeight:600,...font}}>Apagar?</span>
+                              <button onClick={()=>excluirProduto(i)} style={{padding:'4px 8px',borderRadius:6,border:'none',background:C.red,color:'#fff',fontSize:11,cursor:'pointer',fontWeight:700,...font}}>Sim</button>
+                              <button onClick={()=>setConfirmDelete(null)} style={{padding:'4px 8px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:11,cursor:'pointer',...font}}>Não</button>
+                            </div>
+                            :<button onClick={()=>setConfirmDelete(i.id)} title="Excluir produto" style={{padding:'4px 8px',borderRadius:6,border:`1px solid ${C.red}33`,background:'transparent',color:C.red,cursor:'pointer',display:'flex',alignItems:'center'}}><Trash2 size={12}/></button>}
                         </div>
                       </td>
                     </tr>
