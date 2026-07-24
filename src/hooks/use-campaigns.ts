@@ -82,11 +82,14 @@ interface ConversaoRow {
   ticket_medio: number
 }
 
-function useConversaoReal() {
+function useConversaoReal(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
   return useQuery<ConversaoRow[]>(async () => {
     const { data, error } = await supabase
       .from('vw_ecom_campanha_conversao')
       .select('*')
+      .gte('mes_ref', start)
+      .lte('mes_ref', end)
       .range(0, 9999)
     if (error) throw error
     return (data || []).map((r: any) => ({
@@ -98,7 +101,7 @@ function useConversaoReal() {
       conversao_perc: Number(r.conversao_perc),
       ticket_medio: Number(r.ticket_medio),
     }))
-  }, [])
+  }, [start, end])
 }
 
 // ── Faturamento total excl marketplace (para gauge) ────────
@@ -124,7 +127,7 @@ export function useCampaignVerdicts(periodo: Periodo) {
   const { data: metaAds, loading: l1 } = useMetaAds(periodo)
   const { data: daily, loading: l2 } = useMetaAdsDaily(periodo)
   const { data: campSub, loading: l3 } = useCampanhaSubgrupos()
-  const { data: conversao, loading: l4 } = useConversaoReal()
+  const { data: conversao, loading: l4 } = useConversaoReal(periodo)
   const { data: fatTotal, loading: l5 } = useFaturamentoExclMkt(periodo)
 
   const loading = l1 || l2 || l3 || l4 || l5
@@ -322,11 +325,14 @@ export interface CampaignDetail {
   conversao_perc: number
 }
 
-export function useCampaignDetails() {
+export function useCampaignDetails(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
   return useQuery<CampaignDetail[]>(async () => {
     const { data, error } = await supabase
       .from('vw_ecom_campanha_detalhe')
       .select('*')
+      .gte('mes_ref', start)
+      .lte('mes_ref', end)
       .range(0, 9999)
     if (error) throw error
     return (data || []).map((r: any) => ({
@@ -339,5 +345,5 @@ export function useCampaignDetails() {
       faturamento: Number(r.faturamento),
       conversao_perc: Number(r.conversao_perc),
     }))
-  }, [])
+  }, [start, end])
 }

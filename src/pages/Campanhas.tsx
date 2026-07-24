@@ -12,7 +12,7 @@ export default function Campanhas() {
   const { periodo } = usePeriodo()
   const { thresholds } = useThresholds()
   const { campaigns, summary, loading } = useCampaignVerdicts(periodo)
-  const { data: details } = useCampaignDetails()
+  const { data: details } = useCampaignDetails(periodo)
   const subgroups = useSubgroupAnalysis(periodo)
 
   if (loading) return <Spinner />
