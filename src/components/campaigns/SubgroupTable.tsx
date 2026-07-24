@@ -1,15 +1,20 @@
+import React from 'react'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fmtBRL, fmtPct } from '../../lib/fmt'
 import type { SubgroupAnalysis } from '../../types/campaigns'
 
-interface Props {
-  data: SubgroupAnalysis[]
-}
+const font = { fontFamily: 'DM Sans, sans-serif' }
+const mono = { fontFamily: 'DM Mono, monospace' }
+const th: React.CSSProperties = { textAlign: 'right', padding: '8px 10px', background: 'var(--blue-dark)', color: '#fff', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap', ...font }
+const td: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid var(--border)', fontSize: 13, ...font }
+const tdM: React.CSSProperties = { ...td, textAlign: 'right', fontWeight: 600, ...mono }
+
+interface Props { data: SubgroupAnalysis[] }
 
 export default function SubgroupTable({ data }: Props) {
   if (!data.length) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-6 text-center text-txt-hint text-sm">
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, textAlign: 'center', color: 'var(--text-hint)', fontSize: 13, ...font }}>
         Vincule campanhas a subgrupos em <strong>Configurações</strong> para ver o cruzamento aqui.
       </div>
     )
@@ -23,16 +28,16 @@ export default function SubgroupTable({ data }: Props) {
   const totalRoas = totalInvest > 0 ? totalFat / totalInvest : 0
 
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden">
-      <table className="w-full" style={{ borderCollapse: 'collapse', fontFamily: 'DM Sans' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--surface)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr className="bg-blue-dark text-white">
-            {['Subgrupo', 'Investido', 'Faturamento', 'vs Anterior', '% Invest/Fat', 'ROAS'].map((h, i) => (
-              <th key={i} className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
-                style={{ textAlign: i === 0 ? 'left' : 'right' }}>
-                {h}
-              </th>
-            ))}
+          <tr>
+            <th style={{ ...th, textAlign: 'left' }}>Subgrupo</th>
+            <th style={th}>Investido</th>
+            <th style={th}>Faturamento</th>
+            <th style={th}>vs Anterior</th>
+            <th style={th}>% Invest/Fat</th>
+            <th style={th}>ROAS</th>
           </tr>
         </thead>
         <tbody>
@@ -40,38 +45,26 @@ export default function SubgroupTable({ data }: Props) {
             const pctOk = r.pctInvestFat >= 4 && r.pctInvestFat <= 7
             const roasOk = r.roas >= 3
             return (
-              <tr key={i} className="border-b border-border" style={{ background: i % 2 === 0 ? 'transparent' : '#FAFBFC' }}>
-                <td className="px-3 py-2.5 text-[13px] font-semibold">
-                  <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: '#EFF6FF', color: 'var(--blue-dark)' }}>{r.subgrupo}</span>
-                  <span className="text-[11px] text-txt-hint ml-2">{r.campanhas} campanha(s)</span>
+              <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : '#FAFBFC', borderBottom: '1px solid var(--border)' }}>
+                <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
+                  <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 20, background: '#EFF6FF', color: 'var(--blue-dark)' }}>{r.subgrupo}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-hint)', marginLeft: 8 }}>{r.campanhas} campanha(s)</span>
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-[13px] font-semibold">{fmtBRL(r.investimento)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-[15px] font-semibold text-blue-dark">{fmtBRL(r.faturamento)}</td>
-                <td className="px-3 py-2.5 text-right">
-                  <DeltaBadge value={r.deltaPerc} />
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-[13px] font-semibold"
-                  style={{ color: r.pctInvestFat === 0 ? 'var(--text-hint)' : pctOk ? 'var(--green)' : 'var(--amber)' }}>
-                  {r.pctInvestFat > 0 ? fmtPct(r.pctInvestFat, 1) : '–'}
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-[13px] font-semibold"
-                  style={{ color: r.roas === 0 ? 'var(--text-hint)' : roasOk ? 'var(--green)' : 'var(--red)' }}>
-                  {r.roas > 0 ? `${r.roas.toFixed(1)}x` : '–'}
-                </td>
+                <td style={tdM}>{fmtBRL(r.investimento)}</td>
+                <td style={{ ...tdM, fontSize: 15, color: 'var(--blue-dark)' }}>{fmtBRL(r.faturamento)}</td>
+                <td style={{ ...td, textAlign: 'right' }}><DeltaBadge value={r.deltaPerc} /></td>
+                <td style={{ ...tdM, color: r.pctInvestFat === 0 ? 'var(--text-hint)' : pctOk ? 'var(--green)' : 'var(--amber)' }}>{r.pctInvestFat > 0 ? fmtPct(r.pctInvestFat, 1) : '–'}</td>
+                <td style={{ ...tdM, color: r.roas === 0 ? 'var(--text-hint)' : roasOk ? 'var(--green)' : 'var(--red)' }}>{r.roas > 0 ? `${r.roas.toFixed(1)}x` : '–'}</td>
               </tr>
             )
           })}
-          {/* Total row */}
           <tr style={{ background: '#EFF6FF', borderTop: '2px solid var(--border)' }}>
-            <td className="px-3 py-2.5 text-[13px] font-bold text-blue-dark">Total</td>
-            <td className="px-3 py-2.5 text-right font-mono text-[13px] font-bold">{fmtBRL(totalInvest)}</td>
-            <td className="px-3 py-2.5 text-right font-mono text-[15px] font-bold text-blue-dark">{fmtBRL(totalFat)}</td>
-            <td className="px-3 py-2.5 text-right"><DeltaBadge value={totalDelta} /></td>
-            <td className="px-3 py-2.5 text-right font-mono text-[13px] font-bold">{totalFat > 0 ? fmtPct(totalPct, 1) : '–'}</td>
-            <td className="px-3 py-2.5 text-right font-mono text-[13px] font-bold" style={{ color: 'var(--green)' }}>
-              {totalInvest > 0 ? `${totalRoas.toFixed(1)}x` : '–'}
-            </td>
+            <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>Total</td>
+            <td style={{ ...tdM, fontWeight: 700 }}>{fmtBRL(totalInvest)}</td>
+            <td style={{ ...tdM, fontWeight: 700, fontSize: 15, color: 'var(--blue-dark)' }}>{fmtBRL(totalFat)}</td>
+            <td style={{ ...td, textAlign: 'right' }}><DeltaBadge value={totalDelta} /></td>
+            <td style={{ ...tdM, fontWeight: 700 }}>{totalFat > 0 ? fmtPct(totalPct, 1) : '–'}</td>
+            <td style={{ ...tdM, fontWeight: 700, color: 'var(--green)' }}>{totalInvest > 0 ? `${totalRoas.toFixed(1)}x` : '–'}</td>
           </tr>
         </tbody>
       </table>
@@ -80,12 +73,12 @@ export default function SubgroupTable({ data }: Props) {
 }
 
 function DeltaBadge({ value }: { value: number }) {
-  if (value === 0) return <span className="text-txt-hint text-[11px]">–</span>
+  if (value === 0) return <span style={{ fontSize: 11, color: 'var(--text-hint)' }}>–</span>
   const isUp = value > 0
   const color = isUp ? 'var(--green)' : 'var(--red)'
   const Icon = isUp ? TrendingUp : value < 0 ? TrendingDown : Minus
   return (
-    <span className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color }}>
       <Icon size={12} />
       {isUp ? '+' : ''}{value.toFixed(1)}%
     </span>

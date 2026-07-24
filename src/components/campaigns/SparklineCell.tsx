@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function SparklineCell({ data, color, width = 60, height = 20 }: Props) {
-  if (!data.length) return <span className="text-txt-hint text-xs">–</span>
+  if (!data.length) return <span style={{ fontSize: 11, color: 'var(--text-hint)' }}>–</span>
 
   const trend = data.length >= 2 ? data[data.length - 1] - data[0] : 0
   const lineColor = color || (trend >= 0 ? 'var(--green)' : 'var(--red)')
