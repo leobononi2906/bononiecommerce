@@ -1,6 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-blue-dark: #1A3A8F;
+  --color-blue-mid: #0077CC;
+  --color-blue-light: #00AAEE;
+  --color-bg: #F4F7FB;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-txt: #0F172A;
+  --color-txt-muted: #64748B;
+  --color-txt-hint: #94A3B8;
+  --color-ok: #16A34A;
+  --color-ok-bg: #DCFCE7;
+  --color-err: #DC2626;
+  --color-err-bg: #FEE2E2;
+  --color-warn: #D97706;
+  --color-warn-bg: #FEF3C7;
+  --radius-base: 10px;
+  --radius-lg: 14px;
+}
+
 :root {
   --blue-dark:   #1A3A8F;
   --blue-mid:    #0077CC;

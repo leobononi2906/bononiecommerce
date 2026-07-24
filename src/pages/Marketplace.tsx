@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Settings, Plus, RefreshCw, AlertTriangle, CheckCircle, XCircle, Package, Pencil, Save, X, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { fmtNum } from '../lib/fmt'
+import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
 type Conta = { id: number; nome: string; id_vendedor_erp: number; dias_reposicao: number; ativo: boolean }
@@ -29,7 +30,7 @@ const ALERTA: Record<string,{bg:string;fg:string;icon:React.ReactNode;label:stri
   ZERADO:  {bg:'#1c1c1c',        fg:'#fff',          icon:<XCircle size={13}/>, label:'Zerado'},
 }
 
-export default function Marketplace(_props:{periodo?:Periodo}) {
+export default function Marketplace() {
   const [contas,setContas]       = useState<Conta[]>([])
   const [painel,setPainel]       = useState<PainelItem[]>([])
   const [loading,setLoading]     = useState(false)

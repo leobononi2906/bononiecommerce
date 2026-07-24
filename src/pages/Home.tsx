@@ -4,9 +4,8 @@ import { useFaturamento6Meses, useFaturamentoPeriodo, useSubgrupos, useLeads, ge
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
+import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
-
-interface Props { periodo: Periodo }
 
 // Retorna { label: "Jan/26", sortKey: "2026-01" }
 function mesInfo(iso: string): { label: string; sortKey: string } {
@@ -17,7 +16,8 @@ function mesInfo(iso: string): { label: string; sortKey: string } {
   return { label, sortKey }
 }
 
-export default function Home({ periodo }: Props) {
+export default function Home() {
+  const { periodo } = usePeriodo()
   const { data: fat6,   loading: lf6 }  = useFaturamento6Meses()
   const { data: fatP,   loading: lfp }  = useFaturamentoPeriodo(periodo)
   const { data: subs,   loading: lsub } = useSubgrupos(periodo)

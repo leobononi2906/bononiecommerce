@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Plus, Search, X, Save, ChevronDown, MessageCircle, Users, Calendar, Trash2, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
 type Nicho  = { id: number; nome: string }
@@ -266,7 +267,7 @@ function Drawer({parceiro,nichos,onNichoCreated,onClose,onSaved}:{parceiro:Parce
 }
 
 // ── Página principal ───────────────────────────────────────────────────────
-export default function Parceiros(_props:{periodo?:Periodo}) {
+export default function Parceiros() {
   const [parceiros,setParceiros] = useState<Parceiro[]>([])
   const [nichos,setNichos]       = useState<Nicho[]>([])
   const [loading,setLoading]     = useState(false)

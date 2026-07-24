@@ -1,10 +1,11 @@
-import type { Periodo } from '../types'
 import React, { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useUmblerVendedores, useCampanhaSubgrupos, useLeadsUmblerIds, useSubgruposERP, useMetaAdsAtivos } from '../hooks/useData'
 import { Card, CardTitle, SectionLabel, Badge, Spinner } from '../components/ui'
+import ThresholdConfig from '../components/campaigns/ThresholdConfig'
 import { Plus, Trash2, Save, UserPlus } from 'lucide-react'
-import type { EcomUmblerVendedor } from '../types'
+import type { EcomUmblerVendedor, Periodo } from '../types'
+import { usePeriodo } from '../components/layout/AppShell'
 
 const INPUT: React.CSSProperties = {
   padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -25,9 +26,8 @@ const th: React.CSSProperties = {
 }
 const td: React.CSSProperties = { padding: '7px 8px', fontSize: 12 }
 
-interface Props { periodo: Periodo }
-
-export default function Configuracoes({ periodo }: Props) {
+export default function Configuracoes() {
+  const { periodo } = usePeriodo()
   const { data: umblerVend,  loading: lv   } = useUmblerVendedores()
   const { data: campSub,     loading: lcs  } = useCampanhaSubgrupos()
   const { data: leadsIds,    loading: lids } = useLeadsUmblerIds(periodo)
@@ -405,6 +405,16 @@ export default function Configuracoes({ periodo }: Props) {
         <div style={{ fontSize:11, color:'var(--text-hint)', marginTop:8 }}>
           Atual: <strong>{PERIODOS.find(p=>p.value===periodoDefault)?.label}</strong>
         </div>
+      </Card>
+
+      {/* ══════════ LIMIARES DE CAMPANHAS ══════════ */}
+      <SectionLabel>Limiares de campanhas</SectionLabel>
+      <Card>
+        <CardTitle>Configurar semáforo e veredictos</CardTitle>
+        <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12, lineHeight:1.6 }}>
+          Defina os limiares que determinam os veredictos (ESCALAR, MANTER, MONITORAR, PAUSAR) na aba Campanhas.
+        </p>
+        <ThresholdConfig />
       </Card>
     </div>
   )

@@ -4,11 +4,11 @@ import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../compo
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, fmtMinutes, shortName } from '../lib/fmt'
 import { RefreshCw } from 'lucide-react'
+import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
-interface Props { periodo: Periodo }
-
-export default function Vendedores({ periodo }: Props) {
+export default function Vendedores() {
+  const { periodo } = usePeriodo()
   const { data: fatP,    loading: lfp  } = useFaturamentoPeriodo(periodo)
   const { data: espera,  loading: lesp } = useEsperaVendedor(periodo)
   const { data: leads                  } = useLeads(periodo)

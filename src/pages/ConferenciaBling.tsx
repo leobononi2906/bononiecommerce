@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import { RefreshCw, Search, Square, AlertTriangle, Check } from 'lucide-react'
 import { fmtBRLFull, fmtNum } from '../lib/fmt'
 import { supabase } from '../lib/supabase'
+import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
 const FUNC_URL =
@@ -46,7 +47,7 @@ function statusDe(it: Item) {
   return { bg: C.greenBg, fg: C.green, txt: 'OK' }
 }
 
-export default function ConferenciaBling(_props: { periodo?: Periodo }) {
+export default function ConferenciaBling() {
   const [dados, setDados] = useState<Item[]>([])
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
