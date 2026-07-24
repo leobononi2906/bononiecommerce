@@ -5,6 +5,11 @@ import { getThresholds } from '../lib/thresholds'
 import type { EcomCampanha, EcomMetaAds, EcomCampanhaSubgrupo, Periodo } from '../types'
 import type { CampaignAnalysis, CampaignSignal, CampaignVerdict, SubgroupAnalysis } from '../types/campaigns'
 
+/** Normaliza nome de campanha removendo tags de status como [PAUSADA] */
+function normCamp(name: string): string {
+  return name.replace(/\s*\[PAUSADA\]\s*/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 export function useCampanhas(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomCampanha[]>(async () => {
@@ -128,36 +133,40 @@ export function useCampaignVerdicts(periodo: Periodo) {
     if (!metaAds || !daily || !campSub || !conversao) return []
     const t = getThresholds()
 
-    // Subgrupo → campanha mapping
+    // Subgrupo → campanha mapping (normalizado)
     const campToSubs = new Map<string, string[]>()
     campSub.forEach(cs => {
-      const arr = campToSubs.get(cs.campanha) || []
+      const key = normCamp(cs.campanha)
+      const arr = campToSubs.get(key) || []
       if (!arr.includes(cs.subgrupo_produto)) arr.push(cs.subgrupo_produto)
-      campToSubs.set(cs.campanha, arr)
+      campToSubs.set(key, arr)
     })
 
-    // Conversão real indexada por campanha
+    // Conversão real indexada por campanha (normalizado)
     const convMap = new Map<string, ConversaoRow>()
-    conversao.forEach(r => convMap.set(r.campanha, r))
+    conversao.forEach(r => convMap.set(normCamp(r.campanha), r))
 
-    // Aggregate Meta Ads by campaign (spend + impressões)
-    const map = new Map<string, { spend: number; leads: number; impressoes: number; cliques: number }>()
+    // Aggregate Meta Ads by campaign (spend + impressões) — nome normalizado
+    const map = new Map<string, { spend: number; leads: number; impressoes: number; cliques: number; isPaused: boolean }>()
     metaAds.forEach(r => {
-      const cur = map.get(r.campanha) || { spend: 0, leads: 0, impressoes: 0, cliques: 0 }
+      const key = normCamp(r.campanha)
+      const cur = map.get(key) || { spend: 0, leads: 0, impressoes: 0, cliques: 0, isPaused: false }
       cur.spend += r.investimento
       cur.leads += r.leads || 0
       cur.impressoes += r.impressoes
       cur.cliques += r.cliques
-      map.set(r.campanha, cur)
+      if (r.campanha.includes('[PAUSADA]')) cur.isPaused = true
+      map.set(key, cur)
     })
 
-    // Sparklines per campaign
+    // Sparklines per campaign (normalizado)
     const sparkMap = new Map<string, number[]>()
     const allDates = [...new Set(daily.map(r => r.data))].sort()
     daily.forEach(r => {
-      if (!sparkMap.has(r.campanha)) sparkMap.set(r.campanha, new Array(allDates.length).fill(0))
+      const key = normCamp(r.campanha)
+      if (!sparkMap.has(key)) sparkMap.set(key, new Array(allDates.length).fill(0))
       const idx = allDates.indexOf(r.data)
-      if (idx >= 0) sparkMap.get(r.campanha)![idx] += r.investimento
+      if (idx >= 0) sparkMap.get(key)![idx] += r.investimento
     })
 
     const result: CampaignAnalysis[] = []
@@ -187,8 +196,10 @@ export function useCampaignVerdicts(periodo: Periodo) {
       else if (roas < t.roas_yellow && roas > 0) verdict = 'MONITORAR'
       else if (vendas === 0) verdict = 'PAUSAR'
 
-      const shortName = campanha.replace(/\[[\d\/]+\]\s*/g, '').trim()
+      const shortName = campanha.replace(/\[[\d\/]+\]\s*/g, '').replace(/\[PAUSADA\]\s*/g, '').trim()
       const displayName = shortName.length > 40 ? shortName.slice(0, 40) + '…' : shortName
+
+      const pctInvest = revenue > 0 ? (agg.spend / revenue) * 100 : 0
 
       result.push({
         campanha,
@@ -204,9 +215,11 @@ export function useCampaignVerdicts(periodo: Periodo) {
         cpl,
         cpa,
         conversao: conversaoPerc,
+        pctInvestFat: pctInvest,
         signal,
         verdict,
         sparkline: sparkMap.get(campanha) || [],
+        isPaused: agg.isPaused,
       })
     })
 
@@ -254,9 +267,12 @@ export function useSubgroupAnalysis(periodo: Periodo) {
   return useMemo((): SubgroupAnalysis[] => {
     if (!metaAds || !campSub || !subgrupos || !subgruposAnt) return []
 
-    // Invest per campaign
+    // Invest per campaign (normalizado)
     const investCamp = new Map<string, number>()
-    metaAds.forEach(r => investCamp.set(r.campanha, (investCamp.get(r.campanha) || 0) + r.investimento))
+    metaAds.forEach(r => {
+      const key = normCamp(r.campanha)
+      investCamp.set(key, (investCamp.get(key) || 0) + r.investimento)
+    })
 
     // Fat by subgrupo (current)
     const fatMap = new Map<string, number>()
@@ -266,13 +282,14 @@ export function useSubgroupAnalysis(periodo: Periodo) {
     const fatAntMap = new Map<string, number>()
     subgruposAnt.forEach((r: any) => fatAntMap.set(r.subgrupo, (fatAntMap.get(r.subgrupo) || 0) + r.faturamento))
 
-    // Aggregate by subgrupo
+    // Aggregate by subgrupo (normalizado)
     const map = new Map<string, { campanhas: Set<string>; investimento: number }>()
     campSub.forEach(cs => {
+      const key = normCamp(cs.campanha)
       const cur = map.get(cs.subgrupo_produto) || { campanhas: new Set(), investimento: 0 }
-      if (!cur.campanhas.has(cs.campanha)) {
-        cur.campanhas.add(cs.campanha)
-        cur.investimento += investCamp.get(cs.campanha) || 0
+      if (!cur.campanhas.has(key)) {
+        cur.campanhas.add(key)
+        cur.investimento += investCamp.get(key) || 0
       }
       map.set(cs.subgrupo_produto, cur)
     })

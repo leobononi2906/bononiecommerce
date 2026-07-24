@@ -15,9 +15,11 @@ export interface CampaignAnalysis {
   cpl: number
   cpa: number
   conversao: number
+  pctInvestFat: number
   signal: CampaignSignal
   verdict: CampaignVerdict
   sparkline: number[]
+  isPaused: boolean
 }
 
 export interface SubgroupAnalysis {
