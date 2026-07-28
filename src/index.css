@@ -54,3 +54,38 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ---------- Responsivo / mobile ---------- */
+
+.ecom-page { padding: 24px 28px; max-width: 1400px; }
+
+.ecom-kpi-grid { display: grid; gap: 12px; margin-bottom: 20px; }
+
+.ecom-row { display: flex; margin-bottom: 16px; }
+
+.ecom-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 900px) {
+  .ecom-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .ecom-row { flex-direction: column; }
+  .ecom-row > * { flex: 1 1 auto !important; width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .ecom-page { padding: 14px 12px; }
+  body { font-size: 13px; }
+}
+
+@media (max-width: 430px) {
+  .ecom-kpi-grid { grid-template-columns: 1fr !important; gap: 10px; }
+}
+
+/* barra de rolagem visível no toque — sem isso ninguém descobre que a tabela rola */
+@media (max-width: 900px) {
+  .ecom-scroll-x::-webkit-scrollbar { height: 6px; }
+  .ecom-scroll-x::-webkit-scrollbar-thumb { background: var(--text-hint); }
+}

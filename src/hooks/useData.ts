@@ -8,3 +8,8 @@ export { useVendedores, useEsperaVendedor, useUmblerVendedores, useInternos } fr
 export { useLeads, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
 export { useSubgrupos, useSubgruposERP } from './use-marketplace'
 export { useCampanhas, useMetaAds, useCampanhaSubgrupos, useMetaAdsAtivos, useMetaAdsDaily } from './use-campaigns'
+export {
+  useFunilAtendimento, useConfigEtiquetas, salvarPadraoEtiqueta,
+  leadCasa, candidatosEtiqueta,
+} from './use-funil'
+export type { FunilLead, ConfigEtiqueta } from './use-funil'

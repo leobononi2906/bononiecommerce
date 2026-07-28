@@ -6,6 +6,7 @@ import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { PeriodSelector } from '../components/layout'
 import { fmtMinutes, fmtNum, shortName } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
+import FunilVendedores from '../components/atendimento/FunilVendedores'
 
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 const HORAS = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h']
@@ -96,7 +97,7 @@ export default function Atendimento() {
   if (lleads || lespera) return <Spinner />
 
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
+    <div className="ecom-page">
       <PageHeader title="Atendimento">
         
       </PageHeader>
@@ -108,6 +109,10 @@ export default function Atendimento() {
         <KpiCard label="Tempo médio resposta" value={fmtMinutes(mediaGeral)} sub="Horário comercial" />
         <KpiCard label="Vendedores ativos" value={String(tempoVendedor.length)} />
       </KpiGrid>
+
+      <div style={{ marginBottom: 16 }}>
+        <FunilVendedores periodo={periodo} />
+      </div>
 
       <Row>
         <Col flex={6}>
@@ -146,7 +151,8 @@ export default function Atendimento() {
           <Card>
             <CardTitle>Tempo médio para início do atendimento — por vendedor (horário comercial)</CardTitle>
             {lespera ? <Spinner /> : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <div className="ecom-scroll-x">
+              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr>
                     {['Vendedor','Leads','Média','Mínimo','Máximo','Até 5min','5–15min','+15min'].map((h,i) => (
@@ -175,6 +181,7 @@ export default function Atendimento() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             )}
           </Card>
         </Col>
@@ -182,14 +189,14 @@ export default function Atendimento() {
 
       <Card>
         <CardTitle>Mapa de calor — chegada de leads (dia × hora)</CardTitle>
-        <div style={{ overflowX: 'auto' }}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 4, paddingLeft: 40 }}>
+        <div className="ecom-scroll-x">
+          <div style={{ display: 'flex', gap: 6, marginBottom: 4, paddingLeft: 40, minWidth: 460 }}>
             {HORAS.map(h => (
               <div key={h} style={{ width: 32, textAlign: 'center', fontSize: 10, color: 'var(--text-hint)' }}>{h}</div>
             ))}
           </div>
           {DIAS.map((dia, dow) => (
-            <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, minWidth: 460 }}>
               <div style={{ width: 34, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>{dia}</div>
               {heatmap[dow].map((val, col) => {
                 const intensity = val / heatMax

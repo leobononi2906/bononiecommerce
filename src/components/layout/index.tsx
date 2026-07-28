@@ -42,7 +42,7 @@ export function PeriodSelector({ value, onChange }: Props) {
 
 export function PageHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
       <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</h1>
       {children}
     </div>
@@ -51,11 +51,8 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
 
 export function KpiGrid({ children, cols = 4 }: { children: React.ReactNode; cols?: number }) {
   return (
-    <div style={{
-      display: 'grid',
+    <div className="ecom-kpi-grid" style={{
       gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-      gap: 12,
-      marginBottom: 20,
     }}>
       {children}
     </div>
@@ -64,7 +61,7 @@ export function KpiGrid({ children, cols = 4 }: { children: React.ReactNode; col
 
 export function Row({ children, gap = 16 }: { children: React.ReactNode; gap?: number }) {
   return (
-    <div style={{ display: 'flex', gap, marginBottom: 16 }}>
+    <div className="ecom-row" style={{ gap }}>
       {children}
     </div>
   )
