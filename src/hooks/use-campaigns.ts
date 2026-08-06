@@ -71,6 +71,20 @@ export function useMetaAdsDaily(periodo: Periodo) {
   }, [start, end])
 }
 
+/** Investimento + leads dos últimos 6 meses (para a faixa de tendência do Marketing). */
+export function useMetaAdsMensal() {
+  return useQuery<{ data: string; investimento: number; leads: number }[]>(async () => {
+    const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
+    const { data, error } = await supabase
+      .from('ecom_meta_ads')
+      .select('data,investimento,leads')
+      .gte('data', d.toISOString().slice(0, 10))
+      .range(0, 9999)
+    if (error) throw error
+    return (data || []).map((r: any) => ({ data: r.data, investimento: Number(r.investimento) || 0, leads: Number(r.leads) || 0 }))
+  }, [])
+}
+
 // ── Atribuição real via TikTim × Pedidos ERP ──────────────
 interface ConversaoRow {
   campanha: string

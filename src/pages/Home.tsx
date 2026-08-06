@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamento6Meses, useFaturamentoPeriodo, useSubgrupos, useLeads, getCanal } from '../hooks/useData'
+import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useSubgrupos, useLeads, getCanal } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -20,21 +20,32 @@ export default function Home() {
   const { periodo } = usePeriodo()
   const { data: fat6,   loading: lf6 }  = useFaturamento6Meses()
   const { data: fatP,   loading: lfp }  = useFaturamentoPeriodo(periodo)
+  const { data: fatAnt                } = useFaturamentoPeriodoAnterior(periodo)
   const { data: subs,   loading: lsub } = useSubgrupos(periodo)
   const { data: leads,  loading: ll }   = useLeads(periodo)
 
-  const canais = useMemo(() => {
-    if (!fatP) return { vendedor:0, site:0, marketplace:0 }
+  function somaCanais(rows: any[] | null) {
     let vendedor=0, site=0, marketplace=0
-    fatP.forEach((r:any) => {
-      const f = Number(r.faturamento_doc)
+    ;(rows||[]).forEach((r:any) => {
+      const f = Number(r.faturamento_doc) || 0
       const canal = getCanal(r.nome_vendedor||'')
       if (canal==='marketplace') marketplace+=f
       else if (canal==='site') site+=f
       else vendedor+=f
     })
-    return { vendedor, site, marketplace }
-  }, [fatP])
+    return { vendedor, site, marketplace, total: vendedor+site+marketplace }
+  }
+  const canais    = useMemo(() => somaCanais(fatP),   [fatP])
+  const canaisAnt = useMemo(() => somaCanais(fatAnt), [fatAnt])
+
+  // "+R$ 12k (+8%) vs anterior" — para o sub dos cards
+  function cmp(atual: number, ant: number): { sub: string; trend: 'up'|'down'|'neutral' } {
+    const d = atual - ant
+    if (ant === 0) return { sub: 'sem base anterior', trend: 'neutral' }
+    const pct = (d / ant) * 100
+    const sinal = d >= 0 ? '+' : '−'
+    return { sub: `${sinal}${fmtBRL(Math.abs(d))} (${sinal}${Math.abs(pct).toFixed(0)}%) vs anterior`, trend: d > 0 ? 'up' : d < 0 ? 'down' : 'neutral' }
+  }
 
   const topSubs = useMemo(() => {
     if (!subs) return []
@@ -99,19 +110,34 @@ export default function Home() {
 
   const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#60A5FA','#93C5FD']
 
+  const hoje = new Date()
+  const diaAtual = hoje.getDate()
+  const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate()
+  const mesParcial = periodo === 'mes_atual' && diaAtual < diasNoMes
+
   return (
     <div style={{ padding:'20px 24px', maxWidth:1400 }}>
       <PageHeader title="Visão Geral" />
 
+      {mesParcial && !lfp && (
+        <div style={{ background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid #FCE3B0', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
+          📅 Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.
+        </div>
+      )}
+
       <SectionLabel>Faturamento por canal — período selecionado</SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Faturamento Vendedores"  value={lfp?'…':fmtBRL(canais.vendedor)} highlight />
-        <KpiCard label="Faturamento Site"         value={lfp?'…':fmtBRL(canais.site)} />
-        <KpiCard label="Faturamento Marketplace"  value={lfp?'…':fmtBRL(canais.marketplace)} />
+        <KpiCard label="Faturamento Vendedores"  value={lfp?'…':fmtBRL(canais.vendedor)} highlight
+          {...(lfp?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
+        <KpiCard label="Faturamento Site"         value={lfp?'…':fmtBRL(canais.site)}
+          {...(lfp?{}:cmp(canais.site, canaisAnt.site))} />
+        <KpiCard label="Faturamento Marketplace"  value={lfp?'…':fmtBRL(canais.marketplace)}
+          {...(lfp?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
       </KpiGrid>
 
       <KpiGrid cols={3}>
-        <KpiCard label="Total ONLINE"   value={lfp?'…':fmtBRL(canais.vendedor+canais.site+canais.marketplace)} />
+        <KpiCard label="Total ONLINE"   value={lfp?'…':fmtBRL(canais.total)}
+          {...(lfp?{}:cmp(canais.total, canaisAnt.total))} />
         <KpiCard label="Top subgrupo"   value={lsub?'…':(topSubs[0]?.nome||'–')} sub={topSubs[0]?fmtBRL(topSubs[0].fat):''} />
         <KpiCard label="Leads (período)" value={ll?'…':fmtNum(leads?.length??0)} />
       </KpiGrid>

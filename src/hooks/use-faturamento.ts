@@ -1,20 +1,30 @@
 import { supabase } from '../lib/supabase'
-import { useQuery, getPeriodRange } from '../lib/query'
+import { useQuery, getPeriodRange, getPreviousPeriodRange } from '../lib/query'
 import type { Periodo } from '../types'
+
+const FAT_COLS = 'id_vendedor,nome_vendedor,faturamento_doc,custo_doc,taxa_marketplace,faturamento_liquido,data_faturamento'
+
+async function fetchFaturamento(start: string, end: string) {
+  const { data, error } = await supabase
+    .from('vw_comercial_docs_faturados')
+    .select(FAT_COLS)
+    .eq('tipo_saida', 'ONLINE')
+    .gte('data_faturamento', start)
+    .lte('data_faturamento', end)
+    .range(0, 9999)
+  if (error) throw error
+  return data || []
+}
 
 export function useFaturamentoPeriodo(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
-  return useQuery<any[]>(async () => {
-    const { data, error } = await supabase
-      .from('vw_comercial_docs_faturados')
-      .select('id_vendedor,nome_vendedor,faturamento_doc,custo_doc,taxa_marketplace,faturamento_liquido,data_faturamento')
-      .eq('tipo_saida', 'ONLINE')
-      .gte('data_faturamento', start)
-      .lte('data_faturamento', end)
-      .range(0, 9999)
-    if (error) throw error
-    return data || []
-  }, [start, end])
+  return useQuery<any[]>(() => fetchFaturamento(start, end), [start, end])
+}
+
+/** Mesmo recorte, mas do período imediatamente anterior — para comparativo nos cards. */
+export function useFaturamentoPeriodoAnterior(periodo: Periodo) {
+  const { start, end } = getPreviousPeriodRange(periodo)
+  return useQuery<any[]>(() => fetchFaturamento(start, end), [start, end])
 }
 
 export function useFaturamento6Meses() {
