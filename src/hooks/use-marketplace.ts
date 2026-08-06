@@ -61,6 +61,48 @@ export function useMarketplaceCanais(periodo: Periodo) {
   }, [cur.start, cur.end, prev.start, prev.end])
 }
 
+// Canais de marketplace por id_vendedor no ERP (a view de itens só traz id).
+// Mesma origem dos nomes classificados por getCanal() em vw_comercial_docs_faturados.
+export const MKT_CANAIS: { id: number; label: string }[] = [
+  { id: 79832, label: 'ML Battogo' },
+  { id: 79830, label: 'ML Bononi' },
+  { id: 79831, label: 'ML Full' },
+  { id: 46961, label: 'Shopee' },
+]
+
+export interface MktProdutoRow {
+  canalId: number
+  referencia: string
+  produto: string
+  mes: string   // 'yyyy-mm'
+  qtd: number
+  fat: number
+}
+
+/** Itens faturados por produto/mês nos canais de marketplace (últimos 6 meses). */
+export function useMarketplaceProdutos6Meses() {
+  return useQuery<MktProdutoRow[]>(async () => {
+    const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
+    const ids = MKT_CANAIS.map(c => c.id)
+    const { data, error } = await supabase
+      .from('vw_comercial_itens_faturados')
+      .select('id_vendedor,referencia,produto,data_faturamento,qtd,total_item')
+      .eq('tipo_saida', 'ONLINE')
+      .in('id_vendedor', ids)
+      .gte('data_faturamento', d.toISOString().slice(0, 10))
+      .range(0, 9999)
+    if (error) throw error
+    return (data || []).map((r: any) => ({
+      canalId: r.id_vendedor,
+      referencia: r.referencia || '—',
+      produto: r.produto || '—',
+      mes: (r.data_faturamento || '').slice(0, 7),
+      qtd: Number(r.qtd) || 0,
+      fat: Number(r.total_item) || 0,
+    }))
+  }, [])
+}
+
 /** Série mensal (últimos 6 meses) por canal — para as sparklines de tendência. */
 export function useMarketplace6Meses() {
   return useQuery<{ data_faturamento: string; canal: string; fat: number }[]>(async () => {

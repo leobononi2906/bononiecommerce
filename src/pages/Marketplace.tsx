@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, ShoppingBag } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useMarketplaceCanais, useMarketplace6Meses } from '../hooks/useData'
+import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, MKT_CANAIS } from '../hooks/useData'
 import type { MktCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
@@ -29,10 +29,23 @@ function labelCanal(nome: string): string {
     .replace(/^ML /, 'ML ')
 }
 
+const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
 function mesInfo(iso: string): { label: string; sortKey: string } {
   const d = new Date(iso + 'T12:00:00')
-  const label = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][d.getMonth()] + '/' + String(d.getFullYear()).slice(2)
+  const label = MESES_ABREV[d.getMonth()] + '/' + String(d.getFullYear()).slice(2)
   return { label, sortKey: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
+}
+
+// Últimos 6 meses (incluindo o atual), como colunas fixas da tabela de produtos.
+function last6Months(): { sortKey: string; label: string }[] {
+  const now = new Date()
+  const out: { sortKey: string; label: string }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const m = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    out.push({ sortKey: `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`, label: MESES_ABREV[m.getMonth()] + '/' + String(m.getFullYear()).slice(2) })
+  }
+  return out
 }
 
 // ▲ +R$ 12k (+8%)  /  ▼ -R$ 5k (-12%)  /  – sem base
@@ -58,6 +71,9 @@ export default function Marketplace() {
   const { periodo } = usePeriodo()
   const { data, loading, error } = useMarketplaceCanais(periodo)
   const { data: seis, loading: l6 } = useMarketplace6Meses()
+  const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses()
+  const [canalSel, setCanalSel] = useState<number | 'ALL'>('ALL')
+  const [metric, setMetric] = useState<'fat' | 'qtd'>('fat')
 
   const canais: MktCanal[] = data?.canais ?? []
   const totalAtual = data?.totalAtual ?? 0
@@ -101,6 +117,24 @@ export default function Marketplace() {
     chartCanais.forEach(c => sparkByCanal.set(c, sortKeys.map(k => byMes.get(k)!.canais[c] || 0)))
     return { chartData, chartCanais, sparkByCanal }
   }, [seis])
+
+  // Tabela de produtos: pivô produto × últimos 6 meses (filtrado por canal + métrica)
+  const meses6 = useMemo(() => last6Months(), [])
+  const produtos = useMemo(() => {
+    const rows = (prodRows ?? []).filter(r => canalSel === 'ALL' || r.canalId === canalSel)
+    const map = new Map<string, { referencia: string; produto: string; porMes: Record<string, number>; total: number }>()
+    rows.forEach(r => {
+      const val = metric === 'fat' ? r.fat : r.qtd
+      const e = map.get(r.referencia) || { referencia: r.referencia, produto: r.produto, porMes: {}, total: 0 }
+      e.porMes[r.mes] = (e.porMes[r.mes] || 0) + val
+      e.total += val
+      if ((!e.produto || e.produto === '—') && r.produto) e.produto = r.produto
+      map.set(r.referencia, e)
+    })
+    return [...map.values()].filter(p => p.total > 0).sort((a, b) => b.total - a.total)
+  }, [prodRows, canalSel, metric])
+
+  const fmtVal = (v: number) => metric === 'fat' ? fmtBRL(v) : fmtNum(v)
 
   return (
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
@@ -203,6 +237,74 @@ export default function Marketplace() {
               </Card>
             </Col>
           </Row>
+
+          {/* ─── Vendas por produto ─────────────────────────── */}
+          <SectionLabel>Vendas por produto — últimos 6 meses</SectionLabel>
+          <Card>
+            {/* Filtros: canal + métrica */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {[{ v: 'ALL' as const, l: 'Todos' }, ...MKT_CANAIS.map(c => ({ v: c.id, l: c.label }))].map(opt => {
+                  const active = canalSel === opt.v
+                  return (
+                    <button key={String(opt.v)} onClick={() => setCanalSel(opt.v)}
+                      style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${active ? 'var(--blue-dark)' : 'var(--border)'}`, background: active ? 'var(--blue-dark)' : 'transparent', color: active ? '#fff' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      {opt.l}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
+                {([['fat', 'R$'], ['qtd', 'Qtd']] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setMetric(v)}
+                    style={{ padding: '4px 14px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: metric === v ? 'var(--surface)' : 'transparent', color: metric === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: metric === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'DM Sans, sans-serif' }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {lprod ? <Spinner /> : produtos.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32, fontSize: 13 }}>
+                Nenhuma venda de produto neste canal nos últimos 6 meses.
+              </div>
+            ) : (
+              <div className="ecom-scroll-x">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
+                  <thead><tr>
+                    <th style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', position: 'sticky', left: 0, background: 'var(--surface)' }}>Produto</th>
+                    {meses6.map(m => (
+                      <th key={m.sortKey} style={{ textAlign: 'right', padding: '6px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{m.label}</th>
+                    ))}
+                    <th style={{ textAlign: 'right', padding: '6px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 700, borderBottom: '1px solid var(--border)', textTransform: 'uppercase' }}>Total</th>
+                  </tr></thead>
+                  <tbody>
+                    {produtos.map((p, i) => (
+                      <tr key={p.referencia} style={{ borderBottom: i < produtos.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <td style={{ padding: '8px 10px', maxWidth: 260, position: 'sticky', left: 0, background: 'var(--surface)' }}>
+                          <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.produto}>{p.produto}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: 'DM Mono, monospace' }}>{p.referencia}</div>
+                        </td>
+                        {meses6.map(m => {
+                          const v = p.porMes[m.sortKey] || 0
+                          return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: v > 0 ? 'var(--text-primary)' : 'var(--text-hint)' }}>{v > 0 ? fmtVal(v) : '·'}</td>
+                        })}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(p.total)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#F8FAFC' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, position: 'sticky', left: 0, background: '#F8FAFC' }}>Total ({produtos.length} produtos)</td>
+                      {meses6.map(m => {
+                        const tot = produtos.reduce((s, p) => s + (p.porMes[m.sortKey] || 0), 0)
+                        return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{tot > 0 ? fmtVal(tot) : '·'}</td>
+                      })}
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(produtos.reduce((s, p) => s + p.total, 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </>
       )}
     </div>
