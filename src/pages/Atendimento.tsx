@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useLeads, useLeadsRecentes, useEsperaVendedor, useMetaAds, useUmblerVendedores } from '../hooks/useData'
+import { useLeads, useLeadsRecentes, useTempoResposta, useMetaAds } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
-import { PeriodSelector } from '../components/layout'
-import { fmtMinutes, fmtNum, shortName } from '../lib/fmt'
+import { fmtMinutes, fmtNum } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
 import FunilVendedores from '../components/atendimento/FunilVendedores'
 
@@ -15,56 +14,23 @@ export default function Atendimento() {
   const { periodo } = usePeriodo()
   const { data: leads, loading: lleads } = useLeads(periodo)
   const { data: leads30 } = useLeadsRecentes(30)
-  const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
+  const { data: tempoResp, loading: ltempo } = useTempoResposta(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
-  const { data: umblerVend } = useUmblerVendedores()
-
-  // Map umbler id -> nome
-  const idToName = useMemo(() => {
-    const m: Record<string, string> = {}
-    umblerVend?.forEach(v => { m[v.id_membro_umbler] = shortName(v.nome_vendedor_erp) })
-    return m
-  }, [umblerVend])
 
   const totalLeads = leads?.length ?? 0
   const totalInvest = useMemo(() => metaAds?.reduce((s, r) => s + r.investimento, 0) ?? 0, [metaAds])
   const totalLeadsMeta = useMemo(() => metaAds?.reduce((s, r) => s + r.leads, 0) ?? 0, [metaAds])
   const cpl = totalLeadsMeta > 0 ? totalInvest / totalLeadsMeta : 0
 
-  // Tempo médio por vendedor (agregar espera)
-  const tempoVendedor = useMemo(() => {
-    if (!espera) return []
-    const map = new Map<string, { total: number; count: number; min: number; max: number; a5: number; a15: number; acima: number }>()
-    espera.forEach(e => {
-      const nome = idToName[e.id_vendedor] || shortName(e.nome_vendedor)
-      const cur = map.get(nome) || { total: 0, count: 0, min: Infinity, max: -Infinity, a5: 0, a15: 0, acima: 0 }
-      cur.total += e.tempo_medio_min * e.total_atendidos
-      cur.count += e.total_atendidos
-      cur.min = Math.min(cur.min, e.tempo_min_min)
-      cur.max = Math.max(cur.max, e.tempo_max_min)
-      cur.a5 += e.atendidos_em_5min
-      cur.a15 += e.atendidos_5_15min
-      cur.acima += e.atendidos_acima_15min
-      map.set(nome, cur)
-    })
-    return [...map.entries()].map(([nome, d]) => ({
-      nome,
-      media: d.count > 0 ? d.total / d.count : 0,
-      min: d.min === Infinity ? 0 : d.min,
-      max: d.max === -Infinity ? 0 : d.max,
-      total: d.count,
-      pct5: d.count > 0 ? (d.a5 / d.count) * 100 : 0,
-      pct15: d.count > 0 ? (d.a15 / d.count) * 100 : 0,
-      pctAcima: d.count > 0 ? (d.acima / d.count) * 100 : 0,
-    })).sort((a, b) => a.media - b.media)
-  }, [espera, idToName])
+  // Tempo de resposta por vendedor (só cadastrados) — vem pronto do hook
+  const tempoVendedor = useMemo(() => (tempoResp?.vendedores ?? []).map(v => ({
+    nome: v.nome, total: v.total, media: v.media, mediana: v.mediana, min: v.min, max: v.max,
+    pct5: v.total > 0 ? (v.a5 / v.total) * 100 : 0,
+    pct15: v.total > 0 ? (v.a515 / v.total) * 100 : 0,
+    pctAcima: v.total > 0 ? (v.acima / v.total) * 100 : 0,
+  })), [tempoResp])
 
-  const mediaGeral = useMemo(() => {
-    if (!tempoVendedor.length) return 0
-    const total = tempoVendedor.reduce((s, v) => s + v.media * v.total, 0)
-    const count = tempoVendedor.reduce((s, v) => s + v.total, 0)
-    return count > 0 ? total / count : 0
-  }, [tempoVendedor])
+  const medianaGeral = tempoResp?.geralMediana ?? 0
 
   // Heatmap leads por dia × hora — últimos 30 dias, todas as 24h
   const heatmap = useMemo(() => {
@@ -94,7 +60,7 @@ export default function Atendimento() {
   const totalImpress = useMemo(() => metaAds?.reduce((s, r) => s + r.impressoes, 0) ?? 0, [metaAds])
   const totalCliques = useMemo(() => metaAds?.reduce((s, r) => s + r.cliques, 0) ?? 0, [metaAds])
 
-  if (lleads || lespera) return <Spinner />
+  if (lleads || ltempo) return <Spinner />
 
   return (
     <div className="ecom-page">
@@ -106,7 +72,7 @@ export default function Atendimento() {
       <KpiGrid cols={4}>
         <KpiCard label="Leads recebidos" value={fmtNum(totalLeads)} icon="👥" highlight />
         <KpiCard label="Leads Meta Ads" value={fmtNum(totalLeadsMeta)} sub={cpl > 0 ? `CPL: R$ ${cpl.toFixed(2)}` : undefined} />
-        <KpiCard label="Tempo médio resposta" value={fmtMinutes(mediaGeral)} sub="Horário comercial" />
+        <KpiCard label="Tempo de resposta (mediana)" value={fmtMinutes(medianaGeral)} sub="1ª msg → 1ª resposta" />
         <KpiCard label="Vendedores ativos" value={String(tempoVendedor.length)} />
       </KpiGrid>
 
@@ -149,13 +115,15 @@ export default function Atendimento() {
       <Row>
         <Col flex={1}>
           <Card>
-            <CardTitle>Tempo médio para início do atendimento — por vendedor (horário comercial)</CardTitle>
-            {lespera ? <Spinner /> : (
+            <CardTitle>Tempo de resposta ao cliente — por vendedor <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— 1ª mensagem do cliente → 1ª resposta do vendedor · só cadastrados</span></CardTitle>
+            {ltempo ? <Spinner /> : tempoVendedor.length === 0 ? (
+              <div style={{ textAlign:'center', color:'var(--text-muted)', padding:24, fontSize:13 }}>Nenhum atendimento no período selecionado.</div>
+            ) : (
               <div className="ecom-scroll-x">
-              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 12 }}>
+              <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr>
-                    {['Vendedor','Leads','Média','Mínimo','Máximo','Até 5min','5–15min','+15min'].map((h,i) => (
+                    {['Vendedor','Atend.','Mediana','Média','Mín','Máx','Até 5min','5–15min','+15min'].map((h,i) => (
                       <th key={i} style={{ textAlign: i<2?'left':'right', padding: '4px 6px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                     ))}
                   </tr>
@@ -165,7 +133,8 @@ export default function Atendimento() {
                     <tr key={i} style={{ borderBottom: i < tempoVendedor.length-1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '7px 6px', fontWeight: 500 }}>{v.nome}</td>
                       <td style={{ padding: '7px 6px' }}>{fmtNum(v.total)}</td>
-                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600, color: v.media > 60 ? 'var(--red)' : v.media > 15 ? 'var(--amber)' : 'var(--green)' }}>{fmtMinutes(v.media)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600, color: v.mediana > 60 ? 'var(--red)' : v.mediana > 15 ? 'var(--amber)' : 'var(--green)' }}>{fmtMinutes(v.mediana)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color:'var(--text-muted)' }}>{fmtMinutes(v.media)}</td>
                       <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>{fmtMinutes(v.min)}</td>
                       <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>{fmtMinutes(v.max)}</td>
                       <td style={{ padding: '7px 6px', textAlign: 'right' }}><Badge value={`${v.pct5.toFixed(0)}%`} type={v.pct5 >= 50 ? 'ok' : 'warn'} /></td>
@@ -174,10 +143,10 @@ export default function Atendimento() {
                     </tr>
                   ))}
                   <tr style={{ background: '#F8FAFC' }}>
-                    <td style={{ padding: '7px 6px', fontWeight: 700, fontSize: 12 }}>Média geral</td>
+                    <td style={{ padding: '7px 6px', fontWeight: 700, fontSize: 12 }}>Mediana geral</td>
                     <td style={{ padding: '7px 6px', fontWeight: 600 }}>{fmtNum(tempoVendedor.reduce((s,v) => s+v.total,0))}</td>
-                    <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtMinutes(mediaGeral)}</td>
-                    <td colSpan={5} />
+                    <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtMinutes(medianaGeral)}</td>
+                    <td colSpan={6} />
                   </tr>
                 </tbody>
               </table>

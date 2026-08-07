@@ -49,6 +49,66 @@ export function useEsperaVendedor(periodo: Periodo) {
   }, [start, end])
 }
 
+export interface TempoRespVend {
+  nome: string; total: number; media: number; mediana: number
+  min: number; max: number; a5: number; a515: number; acima: number
+}
+function mediana(arr: number[]): number {
+  if (!arr.length) return 0
+  const s = [...arr].sort((a, b) => a - b)
+  const m = Math.floor(s.length / 2)
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+}
+
+/** Tempo de resposta (1ª msg cliente → 1ª resposta vendedor) por vendedor no período.
+ *  Fonte: vw_ecom_tempo_resposta (umbler_mensagens). Só vendedores cadastrados e não-internos. */
+export function useTempoResposta(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
+  return useQuery<{ vendedores: TempoRespVend[]; geralMedia: number; geralMediana: number; geralTotal: number }>(async () => {
+    const [{ data: mapa }, { data: rows, error }] = await Promise.all([
+      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp,interno').range(0, 9999),
+      supabase.from('vw_ecom_tempo_resposta')
+        .select('id_membro_umbler,data_ref,minutos_resposta')
+        .gte('data_ref', start).lte('data_ref', end)
+        .not('id_membro_umbler', 'is', null)
+        .range(0, 9999),
+    ])
+    if (error) throw error
+    const lookup = new Map<string, { nome: string | null; interno: boolean }>()
+    ;(mapa || []).forEach((m: any) => lookup.set(m.id_membro_umbler, { nome: m.nome_vendedor_erp, interno: !!m.interno }))
+
+    const porVend = new Map<string, number[]>()
+    const todos: number[] = []
+    ;(rows || []).forEach((r: any) => {
+      const info = lookup.get(r.id_membro_umbler)
+      if (!info || !info.nome || info.interno) return   // só cadastrados, não-internos
+      const min = Number(r.minutos_resposta)
+      if (!isFinite(min)) return
+      const arr = porVend.get(info.nome) || []
+      arr.push(min); porVend.set(info.nome, arr); todos.push(min)
+    })
+
+    const vendedores: TempoRespVend[] = [...porVend.entries()].map(([nome, arr]) => ({
+      nome,
+      total: arr.length,
+      media: arr.reduce((s, v) => s + v, 0) / arr.length,
+      mediana: mediana(arr),
+      min: Math.min(...arr),
+      max: Math.max(...arr),
+      a5: arr.filter(v => v <= 5).length,
+      a515: arr.filter(v => v > 5 && v <= 15).length,
+      acima: arr.filter(v => v > 15).length,
+    })).sort((a, b) => a.mediana - b.mediana)
+
+    return {
+      vendedores,
+      geralMedia: todos.length ? todos.reduce((s, v) => s + v, 0) / todos.length : 0,
+      geralMediana: mediana(todos),
+      geralTotal: todos.length,
+    }
+  }, [start, end])
+}
+
 export function useUmblerVendedores() {
   return useQuery<EcomUmblerVendedor[]>(async () => {
     const { data, error } = await supabase.from('ecom_umbler_vendedor').select('*').range(0,9999)
