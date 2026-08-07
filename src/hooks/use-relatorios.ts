@@ -13,6 +13,9 @@ export interface RelItemRaw {
   id_vendedor: number
   referencia: string
   produto: string
+  grupo: string
+  subgrupo: string
+  mes: string   // 'yyyy-mm'
   id_doc: number
   qtd: number
   fat: number
@@ -52,7 +55,7 @@ export function useRelatorioItens(start: string, end: string, enabled: boolean) 
     for (let i = 0; i < 120; i++) {
       const { data, error } = await supabase
         .from('vw_comercial_itens_faturados')
-        .select('id_vendedor,referencia,produto,id_doc,qtd,total_item')
+        .select('id_vendedor,referencia,produto,grupo,subgrupo,data_faturamento,id_doc,qtd,total_item')
         .eq('tipo_saida', 'ONLINE')
         .gte('data_faturamento', start)
         .lte('data_faturamento', end)
@@ -64,6 +67,9 @@ export function useRelatorioItens(start: string, end: string, enabled: boolean) 
         id_vendedor: r.id_vendedor,
         referencia: r.referencia || '—',
         produto: r.produto || '—',
+        grupo: r.grupo || '—',
+        subgrupo: r.subgrupo || '—',
+        mes: (r.data_faturamento || '').slice(0, 7),
         id_doc: r.id_doc,
         qtd: Number(r.qtd) || 0,
         fat: Number(r.total_item) || 0,
