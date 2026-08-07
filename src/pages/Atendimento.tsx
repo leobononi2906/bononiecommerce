@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useLeads, useEsperaVendedor, useMetaAds, useUmblerVendedores } from '../hooks/useData'
+import { useLeads, useLeadsRecentes, useEsperaVendedor, useMetaAds, useUmblerVendedores } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { PeriodSelector } from '../components/layout'
@@ -9,11 +9,12 @@ import { usePeriodo } from '../components/layout/AppShell'
 import FunilVendedores from '../components/atendimento/FunilVendedores'
 
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
-const HORAS = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h']
+const HORAS = Array.from({ length: 24 }, (_, h) => `${h}h`)
 
 export default function Atendimento() {
   const { periodo } = usePeriodo()
   const { data: leads, loading: lleads } = useLeads(periodo)
+  const { data: leads30 } = useLeadsRecentes(30)
   const { data: espera, loading: lespera } = useEsperaVendedor(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
   const { data: umblerVend } = useUmblerVendedores()
@@ -65,18 +66,17 @@ export default function Atendimento() {
     return count > 0 ? total / count : 0
   }, [tempoVendedor])
 
-  // Heatmap leads por dia × hora
+  // Heatmap leads por dia × hora — últimos 30 dias, todas as 24h
   const heatmap = useMemo(() => {
-    const grid: number[][] = Array.from({ length: 7 }, () => new Array(11).fill(0))
-    leads?.forEach((l: any) => {
+    const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0))
+    leads30?.forEach((l: any) => {
       const d = new Date(l.criado_em)
       const dow = d.getDay()
       const h = d.getHours()
-      const col = h - 8
-      if (col >= 0 && col < 11) grid[dow][col]++
+      if (h >= 0 && h < 24) grid[dow][h]++
     })
     return grid
-  }, [leads])
+  }, [leads30])
 
   const heatMax = useMemo(() => Math.max(...heatmap.flat(), 1), [heatmap])
 
@@ -188,15 +188,15 @@ export default function Atendimento() {
       </Row>
 
       <Card>
-        <CardTitle>Mapa de calor — chegada de leads (dia × hora)</CardTitle>
+        <CardTitle>Mapa de calor — chegada de leads (dia × hora) <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— últimos 30 dias, todas as horas</span></CardTitle>
         <div className="ecom-scroll-x">
-          <div style={{ display: 'flex', gap: 6, marginBottom: 4, paddingLeft: 40, minWidth: 460 }}>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 4, paddingLeft: 40, minWidth: 760 }}>
             {HORAS.map(h => (
-              <div key={h} style={{ width: 32, textAlign: 'center', fontSize: 10, color: 'var(--text-hint)' }}>{h}</div>
+              <div key={h} style={{ width: 26, textAlign: 'center', fontSize: 9, color: 'var(--text-hint)' }}>{h}</div>
             ))}
           </div>
           {DIAS.map((dia, dow) => (
-            <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, minWidth: 460 }}>
+            <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3, minWidth: 760 }}>
               <div style={{ width: 34, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>{dia}</div>
               {heatmap[dow].map((val, col) => {
                 const intensity = val / heatMax
@@ -204,9 +204,9 @@ export default function Atendimento() {
                   ? '#F1F5F9'
                   : `rgba(26, 58, 143, ${0.1 + intensity * 0.9})`
                 return (
-                  <div key={col} title={`${val} leads`} style={{
-                    width: 32, height: 24,
-                    borderRadius: 4,
+                  <div key={col} title={`${DIAS[dow]} ${col}h — ${val} leads`} style={{
+                    width: 26, height: 22,
+                    borderRadius: 3,
                     background: bg,
                     cursor: 'default',
                     transition: 'background 0.2s',

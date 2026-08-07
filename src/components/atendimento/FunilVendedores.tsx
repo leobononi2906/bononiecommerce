@@ -28,6 +28,12 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [salvando, setSalvando] = useState<number | null>(null)
   const [erroSalvar, setErroSalvar] = useState<string | null>(null)
+  const [ocultarSemVinculo, setOcultarSemVinculo] = useState<boolean>(
+    () => localStorage.getItem('ecom_atd_ocultar_sem_vinculo') !== 'false',  // padrão: ocultar
+  )
+  function toggleOcultar() {
+    setOcultarSemVinculo(v => { const n = !v; localStorage.setItem('ecom_atd_ocultar_sem_vinculo', String(n)); return n })
+  }
 
   const { data: leads, loading: lLeads, error: eLeads } = useFunilAtendimento(periodo)
   const { data: config, loading: lCfg } = useConfigEtiquetas(refreshKey)
@@ -70,6 +76,14 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
     return [...map.values()].sort((a, b) => b.atendimentos - a.atendimentos)
   }, [leads, config, idToName, setInternos, cfgInteressado])
 
+  // Nomes com vínculo ERP (resolvidos via ecom_umbler_vendedor)
+  const nomesComVinculo = useMemo(() => new Set(Object.values(idToName)), [idToName])
+  // Linhas visíveis: opcionalmente esconde quem não tem vínculo (IDs crus + "(sem atendente)")
+  const linhasVis = useMemo(
+    () => ocultarSemVinculo ? linhas.filter(l => nomesComVinculo.has(l.vendedor)) : linhas,
+    [linhas, ocultarSemVinculo, nomesComVinculo],
+  )
+
   const semEtiqueta = useMemo(() => {
     if (!leads || !config) return new Map<string, number>()
     const funil = config.filter(c => c.conta_funil)
@@ -89,19 +103,21 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
   const totais = useMemo(() => {
     const t: Linha = { vendedor: 'TOTAL', atendimentos: 0, porColuna: {}, vendas: 0, interessados: 0 }
     ;(config || []).forEach(c => { t.porColuna[c.coluna_key] = 0 })
-    linhas.forEach(l => {
+    linhasVis.forEach(l => {
       t.atendimentos += l.atendimentos
       t.vendas += l.vendas
       t.interessados += l.interessados
       ;(config || []).forEach(c => { t.porColuna[c.coluna_key] += l.porColuna[c.coluna_key] || 0 })
     })
     return t
-  }, [linhas, config])
+  }, [linhasVis, config])
 
-  const totalSemEtiqueta = useMemo(
-    () => [...semEtiqueta.values()].reduce((s, v) => s + v, 0),
-    [semEtiqueta],
-  )
+  const totalSemEtiqueta = useMemo(() => {
+    const visiveis = new Set(linhasVis.map(l => l.vendedor))
+    let s = 0
+    semEtiqueta.forEach((v, nome) => { if (visiveis.has(nome)) s += v })
+    return s
+  }, [semEtiqueta, linhasVis])
 
   async function mudarPadrao(cfg: ConfigEtiqueta, valor: string) {
     if (!valor) return
@@ -143,16 +159,22 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
 
   return (
     <Card>
-      <CardTitle>
-        Funil por vendedor{' '}
-        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-hint)' }}>
-          — contatos que entraram no período, cruzados com a venda faturada no ERP
-        </span>
-      </CardTitle>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <CardTitle>
+          Funil por vendedor{' '}
+          <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-hint)' }}>
+            — contatos que entraram no período, cruzados com a venda faturada no ERP
+          </span>
+        </CardTitle>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={ocultarSemVinculo} onChange={toggleOcultar} />
+          Ocultar sem vínculo ERP
+        </label>
+      </div>
 
       {erroSalvar && <div style={{ marginBottom: 10 }}><AlertBanner type="error">{erroSalvar}</AlertBanner></div>}
 
-      {linhas.length === 0 ? (
+      {linhasVis.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 0', fontSize: 13, color: 'var(--text-muted)' }}>
           Nenhum atendimento no período selecionado.
         </div>
@@ -194,12 +216,12 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
               </tr>
             </thead>
             <tbody>
-              {linhas.map((l, i) => {
+              {linhasVis.map((l, i) => {
                 const se = semEtiqueta.get(l.vendedor) || 0
                 const conv = l.atendimentos ? (l.vendas / l.atendimentos) * 100 : 0
                 const idx = l.interessados ? (l.vendas / l.interessados) * 100 : 0
                 return (
-                  <tr key={i} style={{ borderBottom: i < linhas.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <tr key={i} style={{ borderBottom: i < linhasVis.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     <td style={{ ...td, textAlign: 'left', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
                       {l.vendedor}
                     </td>

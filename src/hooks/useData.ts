@@ -5,7 +5,7 @@ export { useQuery, getPeriodRange, getCanal, MKT_NAMES, SITE_NAMES } from '../li
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses } from './use-faturamento'
 export { useVendedores, useEsperaVendedor, useUmblerVendedores, useInternos } from './use-vendedores'
-export { useLeads, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
+export { useLeads, useLeadsRecentes, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
 export { useSubgrupos, useSubgruposERP, useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, normMkt, MKT_CANAIS } from './use-marketplace'
 export type { MktCanal, MktProdutoRow } from './use-marketplace'
 export { useCampanhas, useMetaAds, useCampanhaSubgrupos, useMetaAdsAtivos, useMetaAdsDaily } from './use-campaigns'

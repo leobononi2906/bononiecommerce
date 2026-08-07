@@ -16,6 +16,21 @@ export function useLeads(periodo: Periodo) {
   }, [start, end])
 }
 
+/** Leads dos últimos N dias (padrão 30) — para o mapa de calor de horário de chegada. */
+export function useLeadsRecentes(dias = 30) {
+  return useQuery<{ criado_em: string }[]>(async () => {
+    const desde = new Date()
+    desde.setDate(desde.getDate() - dias)
+    const { data, error } = await supabase
+      .from('ecom_leads')
+      .select('criado_em')
+      .gte('criado_em', desde.toISOString())
+      .range(0, 9999)
+    if (error) throw error
+    return data || []
+  }, [dias])
+}
+
 export function useLeadsUmblerIds(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<{ id_umbler: string; nome_umbler: string; leads_mes: number; ultimo_lead: string }[]>(async () => {
