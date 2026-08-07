@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react'
-import { useFaturamentoPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { useFaturamentoPeriodo, useFaturamento6Meses, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
@@ -7,12 +8,48 @@ import { RefreshCw } from 'lucide-react'
 import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
+const MESES_AB = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+function mesInfo(iso: string) {
+  const d = new Date(iso + 'T12:00:00')
+  return { label: `${MESES_AB[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, sortKey: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
+}
+const COR = ['#1A3A8F','#0077CC','#00AAEE','#2563EB','#3B82F6','#60A5FA','#38BDF8','#7DD3FC','#93C5FD','#BAE0FD']
+const COR_OUTROS = '#CBD5E1'
+
 export default function Vendedores() {
   const { periodo } = usePeriodo()
   const { data: fatP,    loading: lfp  } = useFaturamentoPeriodo(periodo)
+  const { data: fat6,    loading: lf6  } = useFaturamento6Meses()
   const { data: leads                  } = useLeads(periodo)
   const { data: umbler                 } = useUmblerVendedores()
   const [lastRefresh, setLastRefresh]    = useState(new Date())
+
+  // Gráfico 6 meses por vendedor (canal vendedor) — top 10 nominais + Outros, inclui quem já saiu
+  const fat6Vend = useMemo(() => {
+    if (!fat6) return { chartData: [] as any[], series: [] as string[] }
+    const byMes = new Map<string, { label: string; vend: Record<string, number> }>()
+    const totais = new Map<string, number>()
+    fat6.forEach((r: any) => {
+      if (getCanal(r.nome_vendedor || '') !== 'vendedor') return
+      const { label, sortKey } = mesInfo(r.data_faturamento)
+      const v = shortName(r.nome_vendedor)
+      if (!byMes.has(sortKey)) byMes.set(sortKey, { label, vend: {} })
+      byMes.get(sortKey)!.vend[v] = (byMes.get(sortKey)!.vend[v] || 0) + Number(r.faturamento_doc)
+      totais.set(v, (totais.get(v) || 0) + Number(r.faturamento_doc))
+    })
+    const TOP = 10
+    const nomes = [...totais.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
+    const principais = nomes.slice(0, TOP)
+    const temOutros = nomes.length > TOP
+    const series = temOutros ? [...principais, 'Outros'] : principais
+    const chartData = [...byMes.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([, { label, vend }]) => {
+      const row: any = { mes: label }
+      principais.forEach(n => { row[n] = vend[n] || 0 })
+      if (temOutros) row['Outros'] = Object.entries(vend).reduce((s, [n, val]) => principais.includes(n) ? s : s + val, 0)
+      return row
+    })
+    return { chartData, series }
+  }, [fat6])
 
   useEffect(() => {
     const t = setInterval(() => { setLastRefresh(new Date()); window.location.reload() }, 5*60*1000)
@@ -135,6 +172,27 @@ export default function Vendedores() {
             )
           })}
         </div>
+      </Card>
+
+      <Card>
+        <CardTitle>Faturamento por vendedor — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— inclui vendedores que já saíram</span></CardTitle>
+        {lf6 ? <Spinner /> : fat6Vend.chartData.length === 0 ? (
+          <div style={{textAlign:'center',color:'var(--text-muted)',padding:24,fontSize:13}}>Sem dados no período.</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={fat6Vend.chartData} margin={{top:0,right:0,left:0,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+              <XAxis dataKey="mes" tick={{fontSize:11,fill:'var(--text-muted)'}}/>
+              <YAxis tick={{fontSize:11,fill:'var(--text-muted)'}} tickFormatter={v=>fmtBRL(v)} width={72}/>
+              <Tooltip formatter={(v:number)=>fmtBRL(v)} contentStyle={{fontSize:12,borderRadius:8}}/>
+              <Legend wrapperStyle={{fontSize:11}}/>
+              {fat6Vend.series.map((v,i)=>(
+                <Bar key={v} dataKey={v} stackId="a" fill={v==='Outros'?COR_OUTROS:COR[i%COR.length]}
+                  radius={i===fat6Vend.series.length-1?[4,4,0,0]:undefined}/>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </Card>
     </div>
   )
