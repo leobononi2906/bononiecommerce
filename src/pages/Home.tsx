@@ -65,9 +65,9 @@ export default function Home() {
     return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([nome,fat])=>({nome,fat}))
   }, [fatP])
 
-  // Gráfico 6 meses — ordenado cronologicamente por sortKey
+  // Gráfico 6 meses — divisão mês a mês por vendedor (top 8 nominais + "Outros")
   const fat6Vend = useMemo(() => {
-    if (!fat6) return { chartData:[], top5:[] }
+    if (!fat6) return { chartData:[], series:[] as string[] }
     // byMes: sortKey → { label, vendedores }
     const byMes = new Map<string,{ label:string; vend:Record<string,number> }>()
     const totais = new Map<string,number>()
@@ -80,12 +80,21 @@ export default function Home() {
       entry.vend[v] = (entry.vend[v]||0) + Number(r.faturamento_doc)
       totais.set(v,(totais.get(v)||0)+Number(r.faturamento_doc))
     })
-    const top5 = [...totais.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k)
-    // Ordena cronologicamente pelo sortKey (yyyy-mm)
+    const TOP = 8
+    const nomes = [...totais.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>k)
+    const principais = nomes.slice(0, TOP)
+    const temOutros = nomes.length > TOP
+    const series = temOutros ? [...principais, 'Outros'] : principais
+    // Ordena cronologicamente pelo sortKey (yyyy-mm); cada mês soma o restante em "Outros"
     const chartData = [...byMes.entries()]
       .sort((a,b)=>a[0]<b[0]?-1:1)
-      .map(([,{label,vend}]) => ({ mes:label, ...vend }))
-    return { chartData, top5 }
+      .map(([,{label,vend}]) => {
+        const row:any = { mes: label }
+        principais.forEach(n => { row[n] = vend[n] || 0 })
+        if (temOutros) row['Outros'] = Object.entries(vend).reduce((s,[n,val])=> principais.includes(n) ? s : s+val, 0)
+        return row
+      })
+    return { chartData, series }
   }, [fat6])
 
   // Tabela 6 meses por departamento — ordenada cronologicamente
@@ -108,7 +117,8 @@ export default function Home() {
     return [...map.values()].sort((a,b)=>a.sortKey<b.sortKey?-1:1)
   }, [fat6])
 
-  const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#60A5FA','#93C5FD']
+  const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#2563EB','#3B82F6','#60A5FA','#38BDF8','#93C5FD']
+  const COR_OUTROS = '#CBD5E1'
 
   const hoje = new Date()
   const diaAtual = hoje.getDate()
@@ -191,9 +201,9 @@ export default function Home() {
                   <YAxis tick={{fontSize:11,fill:'var(--text-muted)'}} tickFormatter={v=>fmtBRL(v)} width={72}/>
                   <Tooltip formatter={(v:number)=>fmtBRL(v)} contentStyle={{fontSize:12,borderRadius:8}}/>
                   <Legend wrapperStyle={{fontSize:11}}/>
-                  {fat6Vend.top5.map((v,i)=>(
-                    <Bar key={v} dataKey={v} stackId="a" fill={COLORS[i%COLORS.length]}
-                      radius={i===fat6Vend.top5.length-1?[4,4,0,0]:undefined}/>
+                  {fat6Vend.series.map((v,i)=>(
+                    <Bar key={v} dataKey={v} stackId="a" fill={v==='Outros'?COR_OUTROS:COLORS[i%COLORS.length]}
+                      radius={i===fat6Vend.series.length-1?[4,4,0,0]:undefined}/>
                   ))}
                 </BarChart>
               </ResponsiveContainer>
