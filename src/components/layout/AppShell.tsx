@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/parceiros': 'Parceiros',
   '/marketplace': 'Marketplace',
   '/vendedores': 'Vendedores',
+  '/relatorios': 'Relatórios',
   '/conferencia': 'Conferência Bling',
   '/configuracoes': 'Configurações',
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch, Handshake } from 'lucide-react'
+import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch, Handshake, FileText } from 'lucide-react'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; sub?: boolean; parent?: string }
 
@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { to: '/parceiros',     label: 'Parceiros',         icon: <Handshake size={15} />, sub: true, parent: '/campanhas' },
   { to: '/marketplace',   label: 'Marketplace',       icon: <ShoppingBag size={15} /> },
   { to: '/vendedores',    label: 'Vendedores',        icon: <Users size={15} /> },
+  { to: '/relatorios',    label: 'Relatórios',        icon: <FileText size={15} /> },
   { to: '/conferencia',   label: 'Conferência Bling', icon: <PackageSearch size={15} /> },
   { to: '/configuracoes', label: 'Configurações',     icon: <Settings size={15} /> },
 ]
