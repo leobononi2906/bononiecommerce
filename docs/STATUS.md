@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-08-11
+> Atualizado: 2026-08-25
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
@@ -18,7 +18,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 ## Estado atual (produção, remodela 06–07/08/2026)
 - **Home**: cards com comparativo "vs período anterior" + aviso de mês parcial.
 - **Marketing**: Meta Ads com faixa de tendência 6m + aviso de mês parcial.
-- **Marketplace**: reescrito como **tendência por canal** (ML Battogo/Bononi/Full/Shopee): faturamento, pedidos, ticket, Δ R$/% vs período anterior, sparkline 6m, barra empilhada. (Removida toda a gestão de estoque ML Full.)
+- **Marketplace**: **tendência por canal** (ML Battogo/Bononi/Full/Shopee): faturamento **LÍQUIDO de devolução** (25/08), pedidos, ticket, Δ R$/% vs período anterior, sparkline 6m, barra empilhada, coluna Devolução. (Removida toda a gestão de estoque ML Full.)
 - **Atendimento**: funil de vendedores (`FunilVendedores.tsx`), mapa de calor 24h, **TMR revivida** via `vw_ecom_tempo_resposta` (mediana, fonte `umbler_mensagens`).
 - **Relatórios/Vendedores**: filtros amplos 6m, agrupamento por mês, gráfico faturamento/vendedor.
 
@@ -33,6 +33,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-08-25 — **Marketplace líquido de devolução por canal** (PR #1, mergeado). `use-marketplace.ts`: `aggMktDev` lê `vw_ecom_devolucao_externa` e abate por canal (mesma classificação `getCanal`/`normMkt` do faturamento); série 6m neta com devolução como fat negativo. `Marketplace.tsx`: coluna Devolução + KPI "Total Marketplace (líq.)". Tabela de produtos fica bruta (mix/volume). Só externa abate; atribuição = mês da devolução. Validado ao vivo (jul: ML Battogo 170k, Full 91k, Bononi 141k, Shopee 78k). Home/Vendedores já netavam.
 - 2026-08-07 — TMR revivida (`vw_ecom_tempo_resposta*`, mediana); lote Atendimento/Relatórios/Vendedores.
 - 2026-08-06 — Remodela: Marketplace por canal, comparativos + aviso de mês parcial, TMR removida do ranking.
 - 2026-07-31 — Migração pro intake único (`Ecomm_UMBLER` v83); funil repontado p/ `bononi_telefone_key`; conversão +15 vendas/+R$86k.
