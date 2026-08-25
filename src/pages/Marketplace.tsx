@@ -81,6 +81,7 @@ export default function Marketplace() {
   const deltaTotal = totalAtual - totalAnt
   const pctTotal = totalAnt > 0 ? (deltaTotal / totalAnt) * 100 : null
   const pedidosTotal = canais.reduce((s, c) => s + c.pedidosAtual, 0)
+  const devTotal = canais.reduce((s, c) => s + c.devAtual, 0)
 
   // Maior alta / maior queda por impacto em R$
   const comBase = canais.filter(c => c.fatAnt > 0 || c.fatAtual > 0)
@@ -165,8 +166,10 @@ export default function Marketplace() {
         <>
           <SectionLabel>Resumo — {PERIODO_LABEL[periodo]}</SectionLabel>
           <KpiGrid cols={4}>
-            <KpiCard label="Total Marketplace" value={fmtBRL(totalAtual)} highlight
-              sub={pctTotal != null ? `${deltaTotal >= 0 ? '+' : '−'}${fmtBRL(Math.abs(deltaTotal))} (${deltaTotal >= 0 ? '+' : '−'}${Math.abs(pctTotal).toFixed(0)}%) vs anterior` : 'sem base anterior'}
+            <KpiCard label="Total Marketplace (líq.)" value={fmtBRL(totalAtual)} highlight
+              sub={devTotal > 0
+                ? `líquido · devol. ${fmtBRL(devTotal)}` + (pctTotal != null ? ` · ${deltaTotal >= 0 ? '+' : '−'}${Math.abs(pctTotal).toFixed(0)}% vs ant.` : '')
+                : (pctTotal != null ? `${deltaTotal >= 0 ? '+' : '−'}${fmtBRL(Math.abs(deltaTotal))} (${deltaTotal >= 0 ? '+' : '−'}${Math.abs(pctTotal).toFixed(0)}%) vs anterior` : 'sem base anterior')}
               trend={deltaTotal > 0 ? 'up' : deltaTotal < 0 ? 'down' : 'neutral'} />
             <KpiCard label="Pedidos (período)" value={fmtNum(pedidosTotal)} />
             <KpiCard label="Maior alta" value={maiorAlta && maiorAlta.deltaRs > 0 ? labelCanal(maiorAlta.nome) : '–'}
@@ -182,8 +185,8 @@ export default function Marketplace() {
             <div className="ecom-scroll-x">
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
                 <thead><tr>
-                  {['Canal', 'Faturamento', 'Pedidos', 'Ticket', 'vs anterior', 'Tendência 6m'].map((h, i) => (
-                    <th key={i} style={{ textAlign: i === 0 ? 'left' : i >= 4 ? 'center' : 'right', padding: '6px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                  {['Canal', 'Faturamento (líq.)', 'Devolução', 'Pedidos', 'Ticket', 'vs anterior', 'Tendência 6m'].map((h, i) => (
+                    <th key={i} style={{ textAlign: i === 0 ? 'left' : (h === 'vs anterior' || h === 'Tendência 6m') ? 'center' : 'right', padding: '6px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
@@ -191,6 +194,7 @@ export default function Marketplace() {
                     <tr key={c.nome} style={{ borderBottom: i < canais.length - 1 ? '1px solid var(--border)' : 'none', background: c.deltaRs > 0 ? 'rgba(22,163,74,0.04)' : c.deltaRs < 0 ? 'rgba(220,38,38,0.04)' : 'transparent' }}>
                       <td style={{ padding: '9px 10px', fontWeight: 600, color: 'var(--blue-dark)' }}>{labelCanal(c.nome)}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{fmtBRL(c.fatAtual)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: c.devAtual > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{c.devAtual > 0 ? '− ' + fmtBRL(c.devAtual) : '–'}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)' }}>{fmtNum(c.pedidosAtual)}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)' }}>{fmtBRL(c.ticketAtual)}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}><DeltaTag deltaRs={c.deltaRs} deltaPct={c.deltaPct} ant={c.fatAnt} /></td>
@@ -204,6 +208,7 @@ export default function Marketplace() {
                   <tr style={{ background: '#F8FAFC' }}>
                     <td style={{ padding: '9px 10px', fontWeight: 700 }}>Total</td>
                     <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totalAtual)}</td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: devTotal > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{devTotal > 0 ? '− ' + fmtBRL(devTotal) : '–'}</td>
                     <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{fmtNum(pedidosTotal)}</td>
                     <td />
                     <td style={{ padding: '9px 10px', textAlign: 'center' }}><DeltaTag deltaRs={deltaTotal} deltaPct={pctTotal} ant={totalAnt} /></td>
@@ -239,7 +244,7 @@ export default function Marketplace() {
           </Row>
 
           {/* ─── Vendas por produto ─────────────────────────── */}
-          <SectionLabel>Vendas por produto — últimos 6 meses</SectionLabel>
+          <SectionLabel>Vendas por produto — últimos 6 meses <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-hint)' }}>(bruto, sem descontar devolução)</span></SectionLabel>
           <Card>
             {/* Filtros: canal + métrica */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>

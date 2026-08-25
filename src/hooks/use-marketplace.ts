@@ -8,6 +8,7 @@ export interface MktCanal {
   fatAtual: number; pedidosAtual: number; ticketAtual: number
   fatAnt: number; pedidosAnt: number
   deltaRs: number; deltaPct: number | null
+  devAtual: number   // devolução externa abatida no período (faturamento já é líquido)
 }
 
 /** Normaliza o nome do canal (tira espaços duplos/pontas, uppercase). */
@@ -36,23 +37,49 @@ async function aggMkt(start: string, end: string) {
   return m
 }
 
+// Devolução externa por canal de marketplace (mesma classificação normMkt do faturamento).
+// nome_vendedor = vendedor da VENDA de origem; atribuição temporal = data_devolucao.
+async function aggMktDev(start: string, end: string) {
+  const { data, error } = await supabase
+    .from('vw_ecom_devolucao_externa')
+    .select('nome_vendedor,valor_total,data_devolucao')
+    .gte('data_devolucao', start)
+    .lte('data_devolucao', end)
+    .range(0, 9999)
+  if (error) throw error
+  const m = new Map<string, number>()
+  ;(data || []).forEach((r: any) => {
+    if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+    const k = normMkt(r.nome_vendedor)
+    m.set(k, (m.get(k) || 0) + (Number(r.valor_total) || 0))
+  })
+  return m
+}
+
 /** Faturamento por canal no período + comparativo com o período anterior. */
 export function useMarketplaceCanais(periodo: Periodo) {
   const cur = getPeriodRange(periodo)
   const prev = getPreviousPeriodRange(periodo)
   return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number }>(async () => {
-    const [a, b] = await Promise.all([aggMkt(cur.start, cur.end), aggMkt(prev.start, prev.end)])
-    const nomes = new Set<string>([...a.keys(), ...b.keys()])
+    const [a, b, da, db] = await Promise.all([
+      aggMkt(cur.start, cur.end), aggMkt(prev.start, prev.end),
+      aggMktDev(cur.start, cur.end), aggMktDev(prev.start, prev.end),
+    ])
+    const nomes = new Set<string>([...a.keys(), ...b.keys(), ...da.keys(), ...db.keys()])
     const canais: MktCanal[] = [...nomes].map(nome => {
       const at = a.get(nome) || { fat: 0, ped: 0 }
       const an = b.get(nome) || { fat: 0, ped: 0 }
-      const deltaRs = at.fat - an.fat
-      const deltaPct = an.fat > 0 ? (deltaRs / an.fat) * 100 : null
+      // Faturamento LÍQUIDO = bruto − devolução externa do canal
+      const fatAtual = at.fat - (da.get(nome) || 0)
+      const fatAnt = an.fat - (db.get(nome) || 0)
+      const deltaRs = fatAtual - fatAnt
+      const deltaPct = fatAnt > 0 ? (deltaRs / fatAnt) * 100 : null
       return {
         nome,
-        fatAtual: at.fat, pedidosAtual: at.ped, ticketAtual: at.ped > 0 ? at.fat / at.ped : 0,
-        fatAnt: an.fat, pedidosAnt: an.ped,
+        fatAtual, pedidosAtual: at.ped, ticketAtual: at.ped > 0 ? fatAtual / at.ped : 0,
+        fatAnt, pedidosAnt: an.ped,
         deltaRs, deltaPct,
+        devAtual: da.get(nome) || 0,
       }
     }).sort((x, y) => y.fatAtual - x.fatAtual)
     const totalAtual = canais.reduce((s, c) => s + c.fatAtual, 0)
@@ -103,20 +130,32 @@ export function useMarketplaceProdutos6Meses() {
   }, [])
 }
 
-/** Série mensal (últimos 6 meses) por canal — para as sparklines de tendência. */
+/** Série mensal (últimos 6 meses) por canal — LÍQUIDA. Devolução entra como fat negativo
+ *  (data_devolucao), somando por mês×canal na mesma agregação do faturamento. */
 export function useMarketplace6Meses() {
   return useQuery<{ data_faturamento: string; canal: string; fat: number }[]>(async () => {
     const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
-    const { data, error } = await supabase
-      .from('vw_comercial_docs_faturados')
-      .select('data_faturamento,nome_vendedor,faturamento_doc')
-      .eq('tipo_saida', 'ONLINE')
-      .gte('data_faturamento', d.toISOString().slice(0, 10))
-      .range(0, 9999)
-    if (error) throw error
-    return (data || [])
-      .filter((r: any) => getCanal(r.nome_vendedor || '') === 'marketplace')
-      .map((r: any) => ({ data_faturamento: r.data_faturamento, canal: normMkt(r.nome_vendedor), fat: Number(r.faturamento_doc) || 0 }))
+    const from = d.toISOString().slice(0, 10)
+    const [fatRes, devRes] = await Promise.all([
+      supabase.from('vw_comercial_docs_faturados')
+        .select('data_faturamento,nome_vendedor,faturamento_doc')
+        .eq('tipo_saida', 'ONLINE').gte('data_faturamento', from).range(0, 9999),
+      supabase.from('vw_ecom_devolucao_externa')
+        .select('data_devolucao,nome_vendedor,valor_total')
+        .gte('data_devolucao', from).range(0, 9999),
+    ])
+    if (fatRes.error) throw fatRes.error
+    if (devRes.error) throw devRes.error
+    const out: { data_faturamento: string; canal: string; fat: number }[] = []
+    ;(fatRes.data || []).forEach((r: any) => {
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      out.push({ data_faturamento: r.data_faturamento, canal: normMkt(r.nome_vendedor), fat: Number(r.faturamento_doc) || 0 })
+    })
+    ;(devRes.data || []).forEach((r: any) => {
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      out.push({ data_faturamento: r.data_devolucao, canal: normMkt(r.nome_vendedor), fat: -(Number(r.valor_total) || 0) })
+    })
+    return out
   }, [])
 }
 
