@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamentoPeriodo, useFaturamento6Meses, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
+import { useFaturamentoPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
@@ -20,6 +20,7 @@ export default function Vendedores() {
   const { periodo } = usePeriodo()
   const { data: fatP,    loading: lfp  } = useFaturamentoPeriodo(periodo)
   const { data: fat6,    loading: lf6  } = useFaturamento6Meses()
+  const { data: devP                   } = useDevolucaoPorVendedorPeriodo(periodo)
   const { data: leads                  } = useLeads(periodo)
   const { data: umbler                 } = useUmblerVendedores()
   const [lastRefresh, setLastRefresh]    = useState(new Date())
@@ -75,6 +76,17 @@ export default function Vendedores() {
     return m
   }, [leads])
 
+  // Devolução externa por vendedor (id_vendedor da venda de origem)
+  const devPorVendedor = useMemo(() => {
+    const m = new Map<string, number>()
+    ;(devP||[]).forEach((r:any) => {
+      if (r.id_vendedor == null) return
+      const k = String(r.id_vendedor)
+      m.set(k, (m.get(k)||0) + (Number(r.valor_total)||0))
+    })
+    return m
+  }, [devP])
+
   // Ranking de vendedores por faturamento
   const ranked = useMemo(() => {
     if (!fatP) return []
@@ -92,19 +104,21 @@ export default function Vendedores() {
         const idUmbler = erpToUmbler.get(v.id)
         const leadsCount = idUmbler ? (leadsPorUmbler.get(idUmbler)||0) : 0
         const conversao = leadsCount > 0 ? (v.docs / leadsCount) * 100 : null
-        return { ...v, leads: leadsCount, conversao }
+        const devolucao = devPorVendedor.get(v.id) || 0
+        return { ...v, leads: leadsCount, conversao, devolucao, liquido: v.fat - devolucao }
       })
-      .sort((a,b) => b.fat - a.fat)
-  }, [fatP, erpToUmbler, leadsPorUmbler])
+      .sort((a,b) => b.liquido - a.liquido)
+  }, [fatP, erpToUmbler, leadsPorUmbler, devPorVendedor])
 
-  const maxFat = ranked[0]?.fat ?? 1
+  const maxFat = ranked[0]?.liquido ?? 1
 
   const kpis = useMemo(() => {
     const total = ranked.reduce((s,v)=>s+v.fat,0)
+    const devolucao = ranked.reduce((s,v)=>s+v.devolucao,0)
     const docs  = ranked.reduce((s,v)=>s+v.docs,0)
     const leadsTotal = ranked.reduce((s,v)=>s+v.leads,0)
     const conv = leadsTotal > 0 ? (docs/leadsTotal)*100 : 0
-    return { total, docs, ativos: ranked.length, leadsTotal, conv }
+    return { total, devolucao, liquido: total-devolucao, docs, ativos: ranked.length, leadsTotal, conv }
   }, [ranked])
 
   const medals = ['🥇','🥈','🥉']
@@ -125,18 +139,25 @@ export default function Vendedores() {
       </PageHeader>
 
       <KpiGrid cols={4}>
-        <KpiCard label="Faturamento total"   value={fmtBRL(kpis.total)} highlight />
+        <KpiCard label="Faturamento (bruto)" value={fmtBRL(kpis.total)} />
+        <KpiCard label="Devolução externa"   value={'− '+fmtBRL(kpis.devolucao)}
+          sub={kpis.total>0?`${(kpis.devolucao/kpis.total*100).toFixed(1)}% do bruto`:undefined}
+          trend={kpis.devolucao>0?'down':'neutral'} />
+        <KpiCard label="Faturamento líquido" value={fmtBRL(kpis.liquido)} highlight />
         <KpiCard label="Pedidos (período)"    value={fmtNum(kpis.docs)} />
+      </KpiGrid>
+
+      <KpiGrid cols={2}>
         <KpiCard label="Leads Umbler"         value={fmtNum(kpis.leadsTotal)} />
         <KpiCard label="Conversão geral"      value={kpis.conv > 0 ? fmtPct(kpis.conv, 1) : '–'}
           sub={kpis.leadsTotal > 0 ? `${kpis.docs} pedidos ÷ ${kpis.leadsTotal} leads` : undefined} />
       </KpiGrid>
 
       <Card style={{marginBottom:16}}>
-        <CardTitle>Ranking — faturamento ({ranked.length} vendedores)</CardTitle>
+        <CardTitle>Ranking — faturamento líquido ({ranked.length} vendedores) <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— já desconta devolução externa</span></CardTitle>
         <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:8}}>
           {ranked.map((v,i) => {
-            const pct   = maxFat>0 ? (v.fat/maxFat)*100 : 0
+            const pct   = maxFat>0 ? (v.liquido/maxFat)*100 : 0
             const isTop = i===0
             const convColor = v.conversao == null ? 'var(--text-hint)'
               : v.conversao >= 15 ? 'var(--green)'
@@ -163,9 +184,16 @@ export default function Vendedores() {
                     <div style={{fontSize:10,color:'var(--text-hint)'}}>{v.docs}p ÷ {fmtNum(v.leads)}l</div>
                   )}
                 </div>
-                {/* Faturamento */}
+                {/* Devolução */}
+                <div style={{textAlign:'right',minWidth:90}}>
+                  <div style={{fontSize:11,color:'var(--text-hint)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Devolução</div>
+                  <div style={{fontSize:13,fontWeight:600,fontFamily:'DM Mono',color:v.devolucao>0?'var(--red)':'var(--text-hint)'}}>
+                    {v.devolucao>0?'− '+fmtBRL(v.devolucao):'–'}
+                  </div>
+                </div>
+                {/* Faturamento líquido */}
                 <div style={{textAlign:'right',minWidth:120}}>
-                  <div style={{fontSize:15,fontWeight:700,fontFamily:'DM Mono',color:isTop?'var(--blue-dark)':'var(--text-primary)'}}>{fmtBRL(v.fat)}</div>
+                  <div style={{fontSize:15,fontWeight:700,fontFamily:'DM Mono',color:isTop?'var(--blue-dark)':'var(--text-primary)'}}>{fmtBRL(v.liquido)}</div>
                   <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{fmtNum(v.docs)} pedidos</div>
                 </div>
               </div>

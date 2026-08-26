@@ -3,6 +3,7 @@ import { FileSpreadsheet } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useVendedoresDim, useRelatorioItens } from '../hooks/use-relatorios'
 import type { Canal, VendedorDim } from '../hooks/use-relatorios'
+import { useDevolucaoItens } from '../hooks/useData'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { KpiCard, Spinner, Card, CardTitle } from '../components/ui'
 import { fmtBRL, fmtNum } from '../lib/fmt'
@@ -65,6 +66,8 @@ export default function Relatorios() {
   const dimEnd = end > iso(now) ? end : iso(now)
   const { data: dim, loading: ldim } = useVendedoresDim(dimStart, dimEnd, true)
   const { data: itens, loading: litens } = useRelatorioItens(start, end, true)
+  // Devolução externa (interna=false) no mesmo intervalo — atribuída pelo mês da devolução, não da venda.
+  const { data: devItens } = useDevolucaoItens(start, end, true)
 
   const idDim = useMemo(() => {
     const m = new Map<number, VendedorDim>()
@@ -108,6 +111,29 @@ export default function Relatorios() {
     })
   }, [itensCanalVend, grupoSel, subgrupoSel, produtoBusca])
 
+  // Devolução externa filtrada pelos MESMOS filtros (canal/vendedor/grupo/subgrupo/produto)
+  const devFiltrados = useMemo(() => {
+    const q = produtoBusca.trim().toLowerCase()
+    return (devItens || []).filter(it => {
+      if (!canalSel.has(canalDe(it.id_vendedor))) return false
+      if (vendSel.size > 0 && !vendSel.has(nomeDe(it.id_vendedor))) return false
+      if (grupoSel.size > 0 && !grupoSel.has(it.grupo)) return false
+      if (subgrupoSel.size > 0 && !subgrupoSel.has(it.subgrupo)) return false
+      if (q && !(`${it.produto} ${it.referencia}`.toLowerCase().includes(q))) return false
+      return true
+    })
+  }, [devItens, idDim, canalSel, vendSel, grupoSel, subgrupoSel, produtoBusca])
+
+  // Devolução agregada pela mesma chave do agrupamento ativo (produto=referência / vendedor=nome / mês)
+  const devPorChave = useMemo(() => {
+    const m = new Map<string, number>()
+    devFiltrados.forEach(it => {
+      const chave = groupBy === 'produto' ? it.referencia : groupBy === 'vendedor' ? nomeDe(it.id_vendedor) : it.mes
+      m.set(chave, (m.get(chave) || 0) + it.fat)
+    })
+    return m
+  }, [devFiltrados, groupBy, idDim])
+
   // Agregação
   const linhas = useMemo(() => {
     type Agg = { chave: string; nome: string; extra: string; qtd: number; fat: number; docs: Set<number> }
@@ -122,16 +148,31 @@ export default function Relatorios() {
       if (groupBy === 'produto' && (!a.nome || a.nome === '—') && it.produto) a.nome = it.produto
       map.set(chave, a)
     })
-    const arr = [...map.values()].map(a => ({ chave: a.chave, nome: a.nome, extra: a.extra, qtd: a.qtd, fat: a.fat, pedidos: a.docs.size, ticket: a.docs.size > 0 ? a.fat / a.docs.size : 0 }))
-    return groupBy === 'mes' ? arr.sort((x, y) => x.chave < y.chave ? -1 : 1) : arr.sort((x, y) => y.fat - x.fat)
-  }, [itensFiltrados, groupBy, idDim])
+    // Inclui chaves que só têm devolução (ex: produto devolvido fora do período de venda filtrado)
+    devPorChave.forEach((_, chave) => {
+      if (!map.has(chave)) {
+        const dev = devFiltrados.find(it => (groupBy === 'produto' ? it.referencia : groupBy === 'vendedor' ? nomeDe(it.id_vendedor) : it.mes) === chave)
+        if (dev) {
+          const nome = groupBy === 'produto' ? dev.produto : groupBy === 'vendedor' ? nomeDe(dev.id_vendedor) : mesLabel(dev.mes)
+          const extra = groupBy === 'produto' ? dev.referencia : groupBy === 'vendedor' ? CANAL_LABEL[canalDe(dev.id_vendedor)] : ''
+          map.set(chave, { chave, nome, extra, qtd: 0, fat: 0, docs: new Set<number>() })
+        }
+      }
+    })
+    const arr = [...map.values()].map(a => {
+      const devolucao = devPorChave.get(a.chave) || 0
+      return { chave: a.chave, nome: a.nome, extra: a.extra, qtd: a.qtd, fat: a.fat, pedidos: a.docs.size, ticket: a.docs.size > 0 ? a.fat / a.docs.size : 0, devolucao, liquido: a.fat - devolucao }
+    })
+    return groupBy === 'mes' ? arr.sort((x, y) => x.chave < y.chave ? -1 : 1) : arr.sort((x, y) => y.liquido - x.liquido)
+  }, [itensFiltrados, devPorChave, devFiltrados, groupBy, idDim])
 
   const totais = useMemo(() => {
     const fat = linhas.reduce((s, l) => s + l.fat, 0)
+    const devolucao = linhas.reduce((s, l) => s + l.devolucao, 0)
     const qtd = linhas.reduce((s, l) => s + l.qtd, 0)
     const docs = new Set<number>()
     itensFiltrados.forEach(it => docs.add(it.id_doc))
-    return { fat, qtd, pedidos: docs.size, ticket: docs.size > 0 ? fat / docs.size : 0 }
+    return { fat, devolucao, liquido: fat - devolucao, qtd, pedidos: docs.size, ticket: docs.size > 0 ? fat / docs.size : 0 }
   }, [linhas, itensFiltrados])
 
   // Série mensal (para o gráfico do agrupamento "Por mês")
@@ -156,13 +197,13 @@ export default function Relatorios() {
   const rotulo = groupBy === 'produto' ? 'produtos' : groupBy === 'vendedor' ? 'vendedores' : 'meses'
 
   function exportarCSV() {
-    const head = [colNome, groupBy === 'produto' ? 'Nome' : groupBy === 'vendedor' ? 'Canal' : '', 'Quantidade', 'Faturamento', 'Ticket médio', 'Pedidos'].filter(Boolean)
-    const rowOf = (chave: string, nome: string, extra: string, qtd: number, fat: number, ticket: number, ped: number) => {
+    const head = [colNome, groupBy === 'produto' ? 'Nome' : groupBy === 'vendedor' ? 'Canal' : '', 'Quantidade', 'Faturamento', 'Devolução', 'Líquido', 'Ticket médio', 'Pedidos'].filter(Boolean)
+    const rowOf = (chave: string, nome: string, extra: string, qtd: number, fat: number, devolucao: number, liquido: number, ticket: number, ped: number) => {
       const base = groupBy === 'produto' ? [extra, nome] : groupBy === 'vendedor' ? [nome, extra] : [nome]
-      return [...base, csvNum(qtd, 0), csvNum(fat), csvNum(ticket), String(ped)]
+      return [...base, csvNum(qtd, 0), csvNum(fat), csvNum(devolucao), csvNum(liquido), csvNum(ticket), String(ped)]
     }
-    const linhasCsv = linhas.map(l => rowOf(l.chave, l.nome, l.extra, l.qtd, l.fat, l.ticket, l.pedidos))
-    const totalRow = rowOf('', groupBy === 'produto' ? 'TOTAL' : groupBy === 'vendedor' ? 'TOTAL' : 'TOTAL', groupBy === 'produto' ? '' : '', totais.qtd, totais.fat, totais.ticket, totais.pedidos)
+    const linhasCsv = linhas.map(l => rowOf(l.chave, l.nome, l.extra, l.qtd, l.fat, l.devolucao, l.liquido, l.ticket, l.pedidos))
+    const totalRow = rowOf('', 'TOTAL', '', totais.qtd, totais.fat, totais.devolucao, totais.liquido, totais.ticket, totais.pedidos)
     const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`
     const body = [head, ...linhasCsv, totalRow].map(r => r.map(esc).join(';')).join('\r\n')
     const blob = new Blob(['﻿' + body], { type: 'text/csv;charset=utf-8;' })
@@ -250,8 +291,14 @@ export default function Relatorios() {
       </Card>
 
       {/* ── KPIs ── */}
-      <KpiGrid cols={4}>
-        <KpiCard label="Faturamento" value={litens ? '…' : fmtBRL(totais.fat)} highlight />
+      <KpiGrid cols={3}>
+        <KpiCard label="Faturamento (bruto)" value={litens ? '…' : fmtBRL(totais.fat)} />
+        <KpiCard label="Devolução externa"   value={litens ? '…' : ('− '+fmtBRL(totais.devolucao))}
+          sub={litens || totais.fat<=0 ? undefined : `${(totais.devolucao/totais.fat*100).toFixed(1)}% do bruto`}
+          trend={totais.devolucao>0?'down':'neutral'} />
+        <KpiCard label="Faturamento líquido" value={litens ? '…' : fmtBRL(totais.liquido)} highlight />
+      </KpiGrid>
+      <KpiGrid cols={3}>
         <KpiCard label="Quantidade" value={litens ? '…' : fmtNum(totais.qtd)} />
         <KpiCard label="Pedidos" value={litens ? '…' : fmtNum(totais.pedidos)} />
         <KpiCard label="Ticket médio" value={litens ? '…' : fmtBRL(totais.ticket)} />
@@ -289,18 +336,20 @@ export default function Relatorios() {
 
       {/* ── TABELA ── */}
       <Card>
-        <CardTitle>Agrupado por {colNome.toLowerCase()} — {linhas.length} {rotulo}</CardTitle>
+        <CardTitle>Agrupado por {colNome.toLowerCase()} — {linhas.length} {rotulo} <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta devolução externa</span></CardTitle>
         {litens ? <Spinner /> : linhas.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32, fontSize: 13 }}>
             Nenhum registro para os filtros selecionados.
           </div>
         ) : (
           <div className="ecom-scroll-x">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 780 }}>
               <thead><tr>
                 <th style={thL}>{colNome}</th>
                 <th style={th}>Qtd</th>
                 <th style={th}>Faturamento</th>
+                <th style={th}>Devolução</th>
+                <th style={th}>Líquido</th>
                 <th style={th}>Ticket médio</th>
                 <th style={th}>Pedidos</th>
               </tr></thead>
@@ -312,7 +361,9 @@ export default function Relatorios() {
                       {l.extra && <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: groupBy === 'produto' ? 'DM Mono, monospace' : 'DM Sans, sans-serif' }}>{l.extra}</div>}
                     </td>
                     <td style={td}>{fmtNum(l.qtd)}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{fmtBRL(l.fat)}</td>
+                    <td style={td}>{fmtBRL(l.fat)}</td>
+                    <td style={{ ...td, color: l.devolucao>0?'var(--red)':'var(--text-hint)' }}>{l.devolucao>0?'− '+fmtBRL(l.devolucao):'–'}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{fmtBRL(l.liquido)}</td>
                     <td style={{ ...td, color: 'var(--text-muted)' }}>{fmtBRL(l.ticket)}</td>
                     <td style={{ ...td, color: 'var(--text-muted)' }}>{fmtNum(l.pedidos)}</td>
                   </tr>
@@ -320,7 +371,9 @@ export default function Relatorios() {
                 <tr style={{ background: '#F8FAFC' }}>
                   <td style={{ padding: '8px 10px', fontWeight: 700 }}>TOTAL</td>
                   <td style={{ ...td, fontWeight: 700 }}>{fmtNum(totais.qtd)}</td>
-                  <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totais.fat)}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{fmtBRL(totais.fat)}</td>
+                  <td style={{ ...td, fontWeight: 700, color: totais.devolucao>0?'var(--red)':'var(--text-hint)' }}>{totais.devolucao>0?'− '+fmtBRL(totais.devolucao):'–'}</td>
+                  <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totais.liquido)}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{fmtBRL(totais.ticket)}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{fmtNum(totais.pedidos)}</td>
                 </tr>
