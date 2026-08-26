@@ -3,6 +3,7 @@ import AppShell from './components/layout/AppShell'
 import HomePg from './pages/Home'
 import Atendimento from './pages/Atendimento'
 import Campanhas from './pages/Campanhas'
+import CampanhasRoi from './pages/CampanhasRoi'
 import Parceiros from './pages/Parceiros'
 import Marketplace from './pages/Marketplace'
 import Vendedores from './pages/Vendedores'
@@ -17,6 +18,7 @@ export default function App() {
         <Route index element={<HomePg />} />
         <Route path="atendimento" element={<Atendimento />} />
         <Route path="campanhas" element={<Campanhas />} />
+        <Route path="campanhas-roi" element={<CampanhasRoi />} />
         <Route path="parceiros" element={<Parceiros />} />
         <Route path="marketplace" element={<Marketplace />} />
         <Route path="vendedores" element={<Vendedores />} />

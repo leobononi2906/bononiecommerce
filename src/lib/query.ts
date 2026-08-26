@@ -31,7 +31,9 @@ export function getPreviousPeriodRange(periodo: Periodo): { start: string; end: 
 }
 
 export const MKT_NAMES = new Set(['ML BATTOGO', 'ML BONONI FULL', 'ML BONONI', 'SHOPEE BRASIL'])
-export const SITE_NAMES = new Set(['SITE'])
+// 'SITE' = plataforma antiga (zerou jun-jul/26); 'TRAY' = Tray Commerce, a loja virtual atual (migração abr-jul/26).
+// Ambos representam o MESMO canal de negócio (loja virtual própria) em épocas diferentes.
+export const SITE_NAMES = new Set(['SITE', 'TRAY'])
 
 export function getCanal(nome: string): 'marketplace' | 'site' | 'vendedor' {
   const n = nome.trim().toUpperCase()

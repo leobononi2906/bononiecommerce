@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
-  useSubgrupos, useLeads, getCanal } from '../hooks/useData'
+  useSubgrupos, useLeads, useCampanhaRoi, getCanal } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -28,6 +28,7 @@ export default function Home() {
   const { data: devAnt                } = useDevolucaoPeriodoAnterior(periodo)
   const { data: subs,   loading: lsub } = useSubgrupos(periodo)
   const { data: leads,  loading: ll }   = useLeads(periodo)
+  const { data: campRoi, loading: lroi } = useCampanhaRoi()
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -71,6 +72,25 @@ export default function Home() {
     const sinal = d >= 0 ? '+' : '−'
     return { sub: `${sinal}${fmtBRL(Math.abs(d))} (${sinal}${Math.abs(pct).toFixed(0)}%) vs anterior`, trend: d > 0 ? 'up' : d < 0 ? 'down' : 'neutral' }
   }
+
+  // ROAS geral / CAC — agregado de vw_ecom_campanha_roi (janela fixa de 60d, independente do filtro de período da tela)
+  const roiTotais = useMemo(() => {
+    const investimento = (campRoi||[]).reduce((s,c)=>s+c.investimento,0)
+    const faturamento  = (campRoi||[]).reduce((s,c)=>s+c.faturamento,0)
+    const compraram    = (campRoi||[]).reduce((s,c)=>s+c.compraram,0)
+    return {
+      investimento, faturamento, compraram,
+      roas: investimento>0 ? faturamento/investimento : 0,
+      cac: compraram>0 ? investimento/compraram : 0,
+    }
+  }, [campRoi])
+
+  // Ticket médio do site no período selecionado
+  const ticketSite = useMemo(() => {
+    let count = 0
+    ;(fatP||[]).forEach((r:any) => { if (getCanal(r.nome_vendedor||'')==='site') count++ })
+    return count>0 ? canais.site/count : 0
+  }, [fatP, canais.site])
 
   const topSubs = useMemo(() => {
     if (!subs) return []
@@ -185,6 +205,16 @@ export default function Home() {
           sub={lfp?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
         <KpiCard label="Total ONLINE líquido"    value={lfp?'…':fmtBRL(liq.total)} highlight
           {...(lfp?{}:cmp(liq.total, liqAnt.total))} />
+      </KpiGrid>
+
+      <SectionLabel>Site — aquisição e retorno <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— ROAS/CAC agregam campanhas dos últimos 60d (vw_ecom_campanha_roi), independente do filtro de período</span></SectionLabel>
+      <KpiGrid cols={4}>
+        <KpiCard label="Faturamento do site"  value={lfp?'…':fmtBRL(canais.site)} highlight />
+        <KpiCard label="ROAS geral"           value={lroi?'…':(roiTotais.roas.toFixed(1)+'x')}
+          sub={lroi?undefined:`fat. campanhas ÷ invest. (${fmtBRL(roiTotais.investimento)})`} />
+        <KpiCard label="CAC"                  value={lroi?'…':(roiTotais.compraram>0?fmtBRL(roiTotais.cac):'–')}
+          sub={lroi?undefined:`${roiTotais.compraram} clientes via campanha`} />
+        <KpiCard label="Ticket médio (site)"  value={lfp?'…':(ticketSite>0?fmtBRL(ticketSite):'–')} />
       </KpiGrid>
 
       <KpiGrid cols={3}>

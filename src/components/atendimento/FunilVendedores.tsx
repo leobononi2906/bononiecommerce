@@ -6,7 +6,7 @@ import {
 } from '../../hooks/use-funil'
 import type { ConfigEtiqueta } from '../../hooks/use-funil'
 import { useUmblerVendedores, useInternos } from '../../hooks/use-vendedores'
-import { fmtNum, shortName } from '../../lib/fmt'
+import { fmtNum, fmtBRL, shortName } from '../../lib/fmt'
 import type { Periodo } from '../../types'
 
 const SEM_ATENDENTE = '(sem atendente)'
@@ -17,6 +17,7 @@ interface Linha {
   porColuna: Record<string, number>
   vendas: number
   interessados: number
+  faturamento: number
 }
 
 function pct(n: number, d: number): string {
@@ -62,12 +63,13 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
       const nome = id ? (idToName[id] || id) : SEM_ATENDENTE
       let linha = map.get(nome)
       if (!linha) {
-        linha = { vendedor: nome, atendimentos: 0, porColuna: {}, vendas: 0, interessados: 0 }
+        linha = { vendedor: nome, atendimentos: 0, porColuna: {}, vendas: 0, interessados: 0, faturamento: 0 }
         config.forEach(c => { linha!.porColuna[c.coluna_key] = 0 })
         map.set(nome, linha)
       }
       linha.atendimentos++
       if (l.comprou_erp) linha.vendas++
+      linha.faturamento += l.valor_venda_erp || 0
       config.forEach(c => {
         if (leadCasa(l.tags, c)) linha!.porColuna[c.coluna_key]++
       })
@@ -101,12 +103,13 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
   const opcoes = useMemo(() => candidatosEtiqueta(leads), [leads])
 
   const totais = useMemo(() => {
-    const t: Linha = { vendedor: 'TOTAL', atendimentos: 0, porColuna: {}, vendas: 0, interessados: 0 }
+    const t: Linha = { vendedor: 'TOTAL', atendimentos: 0, porColuna: {}, vendas: 0, interessados: 0, faturamento: 0 }
     ;(config || []).forEach(c => { t.porColuna[c.coluna_key] = 0 })
     linhasVis.forEach(l => {
       t.atendimentos += l.atendimentos
       t.vendas += l.vendas
       t.interessados += l.interessados
+      t.faturamento += l.faturamento
       ;(config || []).forEach(c => { t.porColuna[c.coluna_key] += l.porColuna[c.coluna_key] || 0 })
     })
     return t
@@ -211,6 +214,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                 ))}
                 <th style={th}>Sem etiqueta</th>
                 <th style={{ ...th, borderLeft: '1px solid var(--border)' }}>Fechou ERP</th>
+                <th style={th}>Faturamento (R$)</th>
                 <th style={th}>Conversão</th>
                 <th style={th}>Índice fech.</th>
               </tr>
@@ -231,6 +235,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                     ))}
                     <td style={{ ...td, color: 'var(--text-muted)' }}>{fmtNum(se)}</td>
                     <td style={{ ...td, borderLeft: '1px solid var(--border)', fontWeight: 600 }}>{fmtNum(l.vendas)}</td>
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--blue-dark)' }}>{l.faturamento > 0 ? fmtBRL(l.faturamento) : '–'}</td>
                     <td style={td}>
                       <Badge value={pct(l.vendas, l.atendimentos)} type={conv >= 2 ? 'ok' : conv >= 1 ? 'warn' : 'err'} />
                     </td>
@@ -250,6 +255,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                 ))}
                 <td style={{ ...td, fontWeight: 700, color: 'var(--text-muted)' }}>{fmtNum(totalSemEtiqueta)}</td>
                 <td style={{ ...td, fontWeight: 700, borderLeft: '1px solid var(--border)' }}>{fmtNum(totais.vendas)}</td>
+                <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totais.faturamento)}</td>
                 <td style={{ ...td, fontWeight: 700 }}>{pct(totais.vendas, totais.atendimentos)}</td>
                 <td style={{ ...td, fontWeight: 700 }}>{pct(totais.vendas, totais.interessados)}</td>
               </tr>

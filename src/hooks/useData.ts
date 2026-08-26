@@ -17,3 +17,6 @@ export {
   leadCasa, candidatosEtiqueta,
 } from './use-funil'
 export type { FunilLead, ConfigEtiqueta } from './use-funil'
+export { useCampanhaRoi } from './use-campanha-roi'
+export type { CampanhaRoi } from './use-campanha-roi'
+export { useVendedoresAtivosCount } from './use-vendedores-ativos'

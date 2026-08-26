@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch, Handshake, FileText } from 'lucide-react'
+import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch, Handshake, FileText, TrendingUp } from 'lucide-react'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; sub?: boolean; parent?: string }
 
@@ -8,6 +8,7 @@ const NAV: NavItem[] = [
   { to: '/',              label: 'Home',              icon: <Home size={15} /> },
   { to: '/atendimento',   label: 'Atendimento',       icon: <MessageSquare size={15} /> },
   { to: '/campanhas',     label: 'Marketing',         icon: <Megaphone size={15} /> },
+  { to: '/campanhas-roi', label: 'Campanhas — ROI',   icon: <TrendingUp size={15} />, sub: true, parent: '/campanhas' },
   { to: '/parceiros',     label: 'Parceiros',         icon: <Handshake size={15} />, sub: true, parent: '/campanhas' },
   { to: '/marketplace',   label: 'Marketplace',       icon: <ShoppingBag size={15} /> },
   { to: '/vendedores',    label: 'Vendedores',        icon: <Users size={15} /> },
@@ -16,7 +17,7 @@ const NAV: NavItem[] = [
   { to: '/configuracoes', label: 'Configurações',     icon: <Settings size={15} /> },
 ]
 
-const MARKETING_PATHS = ['/campanhas', '/parceiros']
+const MARKETING_PATHS = ['/campanhas', '/campanhas-roi', '/parceiros']
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)

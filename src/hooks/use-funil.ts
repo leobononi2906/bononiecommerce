@@ -8,6 +8,7 @@ export interface FunilLead {
   id_membro_umbler: string | null
   tags: string[]
   comprou_erp: boolean
+  valor_venda_erp: number
 }
 
 export interface ConfigEtiqueta {
@@ -30,7 +31,7 @@ async function fetchTodos(start: string, end: string): Promise<FunilLead[]> {
   for (let p = 0; p < MAX_PAGES; p++) {
     const { data, error } = await supabase
       .from('ecom_atd_funil')
-      .select('telefone,dt_entrada,id_membro_umbler,tags,comprou_erp')
+      .select('telefone,dt_entrada,id_membro_umbler,tags,comprou_erp,valor_venda_erp')
       .gte('dt_entrada', start + 'T00:00:00')
       .lte('dt_entrada', end + 'T23:59:59')
       .order('dt_entrada', { ascending: true })
@@ -47,7 +48,7 @@ export function useFunilAtendimento(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<FunilLead[]>(async () => {
     const rows = await fetchTodos(start, end)
-    return rows.map(r => ({ ...r, tags: Array.isArray(r.tags) ? r.tags : [] }))
+    return rows.map(r => ({ ...r, tags: Array.isArray(r.tags) ? r.tags : [], valor_venda_erp: Number(r.valor_venda_erp) || 0 }))
   }, [start, end])
 }
 

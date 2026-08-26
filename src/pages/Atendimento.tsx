@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useLeads, useLeadsRecentes, useTempoResposta, useMetaAds } from '../hooks/useData'
+import { useLeads, useLeadsRecentes, useTempoResposta, useMetaAds, useVendedoresAtivosCount } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { fmtMinutes, fmtNum } from '../lib/fmt'
@@ -16,6 +16,7 @@ export default function Atendimento() {
   const { data: leads30 } = useLeadsRecentes(30)
   const { data: tempoResp, loading: ltempo } = useTempoResposta(periodo)
   const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
+  const { data: vendedoresAtivos } = useVendedoresAtivosCount()
 
   const totalLeads = leads?.length ?? 0
   const totalInvest = useMemo(() => metaAds?.reduce((s, r) => s + r.investimento, 0) ?? 0, [metaAds])
@@ -73,7 +74,7 @@ export default function Atendimento() {
         <KpiCard label="Leads recebidos" value={fmtNum(totalLeads)} icon="👥" highlight />
         <KpiCard label="Leads Meta Ads" value={fmtNum(totalLeadsMeta)} sub={cpl > 0 ? `CPL: R$ ${cpl.toFixed(2)}` : undefined} />
         <KpiCard label="Tempo de resposta (mediana)" value={fmtMinutes(medianaGeral)} sub="1ª msg → 1ª resposta" />
-        <KpiCard label="Vendedores ativos" value={String(tempoVendedor.length)} />
+        <KpiCard label="Vendedores ativos" value={vendedoresAtivos != null ? String(vendedoresAtivos) : '…'} sub="config no Hub · Umbler → Usuários" />
       </KpiGrid>
 
       <div style={{ marginBottom: 16 }}>
