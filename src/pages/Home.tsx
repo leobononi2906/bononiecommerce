@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useSubgrupos, useLeads, getCanal } from '../hooks/useData'
+import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
+  useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
+  useSubgrupos, useLeads, getCanal } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -21,9 +23,13 @@ export default function Home() {
   const { data: fat6,   loading: lf6 }  = useFaturamento6Meses()
   const { data: fatP,   loading: lfp }  = useFaturamentoPeriodo(periodo)
   const { data: fatAnt                } = useFaturamentoPeriodoAnterior(periodo)
+  const { data: dev6,   loading: ld6 }  = useDevolucao6Meses()
+  const { data: devP                  } = useDevolucaoPeriodo(periodo)
+  const { data: devAnt                } = useDevolucaoPeriodoAnterior(periodo)
   const { data: subs,   loading: lsub } = useSubgrupos(periodo)
   const { data: leads,  loading: ll }   = useLeads(periodo)
 
+  // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
     let vendedor=0, site=0, marketplace=0
     ;(rows||[]).forEach((r:any) => {
@@ -35,8 +41,27 @@ export default function Home() {
     })
     return { vendedor, site, marketplace, total: vendedor+site+marketplace }
   }
+  // Soma devolução externa por canal (mesma classificação getCanal da venda de origem)
+  function somaDevolucao(rows: any[] | null) {
+    let vendedor=0, site=0, marketplace=0
+    ;(rows||[]).forEach((r:any) => {
+      const v = Number(r.valor_total) || 0
+      const canal = getCanal(r.nome_vendedor||'')
+      if (canal==='marketplace') marketplace+=v
+      else if (canal==='site') site+=v
+      else vendedor+=v
+    })
+    return { vendedor, site, marketplace, total: vendedor+site+marketplace }
+  }
   const canais    = useMemo(() => somaCanais(fatP),   [fatP])
   const canaisAnt = useMemo(() => somaCanais(fatAnt), [fatAnt])
+  const devol     = useMemo(() => somaDevolucao(devP),   [devP])
+  const devolAnt  = useMemo(() => somaDevolucao(devAnt), [devAnt])
+  // Faturamento líquido = bruto − devolução externa
+  const liq       = { vendedor: canais.vendedor-devol.vendedor, site: canais.site-devol.site,
+                      marketplace: canais.marketplace-devol.marketplace, total: canais.total-devol.total }
+  const liqAnt    = { total: canaisAnt.total-devolAnt.total }
+  const taxaDev   = canais.total>0 ? (devol.total/canais.total)*100 : 0
 
   // "+R$ 12k (+8%) vs anterior" — para o sub dos cards
   function cmp(atual: number, ant: number): { sub: string; trend: 'up'|'down'|'neutral' } {
@@ -100,22 +125,29 @@ export default function Home() {
   // Tabela 6 meses por departamento — ordenada cronologicamente
   const fat6Depto = useMemo(() => {
     if (!fat6) return []
-    type Row = { sortKey:string; mes:string; Vendedores:number; Marketplace:number; Site:number; total:number }
+    type Row = { sortKey:string; mes:string; Vendedores:number; Marketplace:number; Site:number; total:number; devolucao:number; liquido:number }
     const map = new Map<string,Row>()
+    const ensure = (iso:string) => {
+      const { label, sortKey } = mesInfo(iso)
+      if (!map.has(sortKey)) map.set(sortKey,{sortKey,mes:label,Vendedores:0,Marketplace:0,Site:0,total:0,devolucao:0,liquido:0})
+      return map.get(sortKey)!
+    }
     fat6.forEach((r:any) => {
-      const { label, sortKey } = mesInfo(r.data_faturamento)
       const f = Number(r.faturamento_doc)
       const canal = getCanal(r.nome_vendedor||'')
-      if (!map.has(sortKey)) map.set(sortKey,{sortKey,mes:label,Vendedores:0,Marketplace:0,Site:0,total:0})
-      const row = map.get(sortKey)!
+      const row = ensure(r.data_faturamento)
       if (canal==='vendedor') row.Vendedores+=f
       else if (canal==='marketplace') row.Marketplace+=f
       else row.Site+=f
       row.total+=f
     })
-    // Ordena cronologicamente
-    return [...map.values()].sort((a,b)=>a.sortKey<b.sortKey?-1:1)
-  }, [fat6])
+    // Devolução externa por mês (data_devolucao)
+    ;(dev6||[]).forEach((r:any) => { ensure(r.data_devolucao).devolucao += Number(r.valor_total)||0 })
+    // Ordena cronologicamente e calcula líquido = total − devolução
+    const rows = [...map.values()].sort((a,b)=>a.sortKey<b.sortKey?-1:1)
+    rows.forEach(r => { r.liquido = r.total - r.devolucao })
+    return rows
+  }, [fat6, dev6])
 
   const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#2563EB','#3B82F6','#60A5FA','#38BDF8','#93C5FD']
   const COR_OUTROS = '#CBD5E1'
@@ -145,9 +177,17 @@ export default function Home() {
           {...(lfp?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
       </KpiGrid>
 
+      <SectionLabel>Líquido após devolução externa — período selecionado</SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Total ONLINE"   value={lfp?'…':fmtBRL(canais.total)}
+        <KpiCard label="Total ONLINE (bruto)"   value={lfp?'…':fmtBRL(canais.total)}
           {...(lfp?{}:cmp(canais.total, canaisAnt.total))} />
+        <KpiCard label="Devolução externa"       value={lfp?'…':('− '+fmtBRL(devol.total))}
+          sub={lfp?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
+        <KpiCard label="Total ONLINE líquido"    value={lfp?'…':fmtBRL(liq.total)} highlight
+          {...(lfp?{}:cmp(liq.total, liqAnt.total))} />
+      </KpiGrid>
+
+      <KpiGrid cols={3}>
         <KpiCard label="Top subgrupo"   value={lsub?'…':(topSubs[0]?.nome||'–')} sub={topSubs[0]?fmtBRL(topSubs[0].fat):''} />
         <KpiCard label="Leads (período)" value={ll?'…':fmtNum(leads?.length??0)} />
       </KpiGrid>
@@ -213,12 +253,13 @@ export default function Home() {
       </Row>
 
       <Card>
-        <CardTitle>Por departamento — últimos 6 meses</CardTitle>
+        <CardTitle>Por departamento — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta a devolução externa</span></CardTitle>
         {lf6 ? <Spinner /> : (
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,minWidth:640}}>
             <thead><tr>
-              {['Mês','Vendedores','Marketplace','Site','Total'].map((h,i)=>(
-                <th key={i} style={{textAlign:i<1?'left':'right',padding:'5px 8px',fontSize:11,color:'var(--text-hint)',fontWeight:600,borderBottom:'1px solid var(--border)',textTransform:'uppercase'}}>{h}</th>
+              {['Mês','Vendedores','Marketplace','Site','Total bruto','Devolução','Líquido'].map((h,i)=>(
+                <th key={i} style={{textAlign:i<1?'left':'right',padding:'5px 8px',fontSize:11,color:'var(--text-hint)',fontWeight:600,borderBottom:'1px solid var(--border)',textTransform:'uppercase',whiteSpace:'nowrap'}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -228,11 +269,14 @@ export default function Home() {
                   <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Vendedores)}</td>
                   <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Marketplace)}</td>
                   <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Site)}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono',fontWeight:600,color:'var(--blue-dark)'}}>{fmtBRL(r.total)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.total)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono',color:r.devolucao>0?'var(--red)':'var(--text-hint)'}}>{r.devolucao>0?'− '+fmtBRL(r.devolucao):'–'}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono',fontWeight:600,color:'var(--blue-dark)'}}>{fmtBRL(r.liquido)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>

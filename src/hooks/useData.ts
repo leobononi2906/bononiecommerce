@@ -4,6 +4,7 @@
 export { useQuery, getPeriodRange, getCanal, MKT_NAMES, SITE_NAMES } from '../lib/query'
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses } from './use-faturamento'
+export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses } from './use-devolucao'
 export { useVendedores, useEsperaVendedor, useTempoResposta, useUmblerVendedores, useInternos } from './use-vendedores'
 export type { TempoRespVend } from './use-vendedores'
 export { useLeads, useLeadsRecentes, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
