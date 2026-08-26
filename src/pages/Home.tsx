@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
-  useSubgrupos, useLeads, useCampanhaRoi, getCanal } from '../hooks/useData'
+  useSubgrupos, useLeads, useMetaAds, getCanal } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -28,7 +28,7 @@ export default function Home() {
   const { data: devAnt                } = useDevolucaoPeriodoAnterior(periodo)
   const { data: subs,   loading: lsub } = useSubgrupos(periodo)
   const { data: leads,  loading: ll }   = useLeads(periodo)
-  const { data: campRoi, loading: lroi } = useCampanhaRoi()
+  const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -73,17 +73,22 @@ export default function Home() {
     return { sub: `${sinal}${fmtBRL(Math.abs(d))} (${sinal}${Math.abs(pct).toFixed(0)}%) vs anterior`, trend: d > 0 ? 'up' : d < 0 ? 'down' : 'neutral' }
   }
 
-  // ROAS geral / CAC — agregado de vw_ecom_campanha_roi (janela fixa de 60d, independente do filtro de período da tela)
+  // ROAS geral / CAC — base do Leo: o tráfego (Meta Ads) alimenta vendas TANTO do site quanto dos
+  // vendedores (fechadas por WhatsApp), então o retorno real do investimento é
+  // (faturamento site + faturamento vendedores) ÷ investimento em tráfego — não só a receita
+  // atribuída campanha a campanha (essa fica na aba "Campanhas — ROI real", é um recorte mais estreito).
+  // Investimento e pedidos seguem o MESMO período selecionado na tela (não janela fixa de 60d).
   const roiTotais = useMemo(() => {
-    const investimento = (campRoi||[]).reduce((s,c)=>s+c.investimento,0)
-    const faturamento  = (campRoi||[]).reduce((s,c)=>s+c.faturamento,0)
-    const compraram    = (campRoi||[]).reduce((s,c)=>s+c.compraram,0)
+    const investimento = (metaAds||[]).reduce((s,r:any)=>s+r.investimento,0)
+    const receita = canais.site + canais.vendedor
+    let pedidos = 0
+    ;(fatP||[]).forEach((r:any) => { const c = getCanal(r.nome_vendedor||''); if (c==='site' || c==='vendedor') pedidos++ })
     return {
-      investimento, faturamento, compraram,
-      roas: investimento>0 ? faturamento/investimento : 0,
-      cac: compraram>0 ? investimento/compraram : 0,
+      investimento, receita, pedidos,
+      roas: investimento>0 ? receita/investimento : 0,
+      cac: investimento>0 && pedidos>0 ? investimento/pedidos : 0,
     }
-  }, [campRoi])
+  }, [metaAds, canais.site, canais.vendedor, fatP])
 
   // Ticket médio do site no período selecionado
   const ticketSite = useMemo(() => {
@@ -207,13 +212,13 @@ export default function Home() {
           {...(lfp?{}:cmp(liq.total, liqAnt.total))} />
       </KpiGrid>
 
-      <SectionLabel>Site — aquisição e retorno <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— ROAS/CAC agregam campanhas dos últimos 60d (vw_ecom_campanha_roi), independente do filtro de período</span></SectionLabel>
+      <SectionLabel>Tráfego — retorno sobre investimento <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— o tráfego (Meta Ads) alimenta vendas do site E dos vendedores (fechadas por WhatsApp); ROAS/CAC = (site + vendedores) ÷ investimento em tráfego, período selecionado</span></SectionLabel>
       <KpiGrid cols={4}>
         <KpiCard label="Faturamento do site"  value={lfp?'…':fmtBRL(canais.site)} highlight />
-        <KpiCard label="ROAS geral"           value={lroi?'…':(roiTotais.roas.toFixed(1)+'x')}
-          sub={lroi?undefined:`fat. campanhas ÷ invest. (${fmtBRL(roiTotais.investimento)})`} />
-        <KpiCard label="CAC"                  value={lroi?'…':(roiTotais.compraram>0?fmtBRL(roiTotais.cac):'–')}
-          sub={lroi?undefined:`${roiTotais.compraram} clientes via campanha`} />
+        <KpiCard label="ROAS geral"           value={(lfp||lmeta)?'…':(roiTotais.roas.toFixed(1)+'x')}
+          sub={(lfp||lmeta)?undefined:`(site+vend.) ÷ tráfego (${fmtBRL(roiTotais.investimento)})`} />
+        <KpiCard label="CAC"                  value={(lfp||lmeta)?'…':(roiTotais.pedidos>0?fmtBRL(roiTotais.cac):'–')}
+          sub={(lfp||lmeta)?undefined:`${roiTotais.pedidos} pedidos (site+vend.)`} />
         <KpiCard label="Ticket médio (site)"  value={lfp?'…':(ticketSite>0?fmtBRL(ticketSite):'–')} />
       </KpiGrid>
 
