@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-08-25
+> Atualizado: 2026-08-26
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
@@ -15,17 +15,23 @@ Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), mar
 ## Fluxo de dados (Umbler)
 Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-intake` → `Ecomm_UMBLER` v83 (downstream fino, só cria `ecom_leads`/`ecom_leads_fila_bot`). Raw vive em `umbler_eventos.payload`. Funil de conversão = `ecom_atd_funil` (cron `ecom-atd-refresh`, jobid 45) cruzando contato Umbler × faturamento ERP por `bononi_telefone_key`.
 
-## Estado atual (produção, remodela 06–07/08/2026)
-- **Home**: cards com comparativo "vs período anterior" + aviso de mês parcial.
-- **Marketing**: Meta Ads com faixa de tendência 6m + aviso de mês parcial.
-- **Marketplace**: **tendência por canal** (ML Battogo/Bononi/Full/Shopee): faturamento **LÍQUIDO de devolução** (25/08), pedidos, ticket, Δ R$/% vs período anterior, sparkline 6m, barra empilhada, coluna Devolução. (Removida toda a gestão de estoque ML Full.)
-- **Atendimento**: funil de vendedores (`FunilVendedores.tsx`), mapa de calor 24h, **TMR revivida** via `vw_ecom_tempo_resposta` (mediana, fonte `umbler_mensagens`).
-- **Relatórios/Vendedores**: filtros amplos 6m, agrupamento por mês, gráfico faturamento/vendedor.
+## Estado atual (produção, 26/08/2026)
+- **Home**: cards com comparativo "vs período anterior" + aviso de mês parcial. Faixa "Líquido após devolução externa" (bruto→devolução→líquido). Nova seção "Site — aquisição e retorno": Faturamento do site, ROAS geral, CAC (agregados de `vw_ecom_campanha_roi`, 60d), Ticket médio do site.
+- **Marketing**: Meta Ads com faixa de tendência 6m + aviso de mês parcial. Pipeline de atribuição antigo (Meta Ads × TikTim × `ecom_campanha_subgrupo`, `useCampaignVerdicts`) continua aqui, sem mudança.
+- **Campanhas — ROI real** (`/campanhas-roi`, nova 26/08, sub-aba de Marketing): fonte única `vw_ecom_campanha_roi` — sem pipeline manual. KPIs (Investimento/Leads/CPL/Faturamento/ROAS) + tabela ordenável por investimento/leads/compraram/faturamento/ROAS, chip verde/vermelho, aviso "s/ atrib." em campanhas antigas (pré-atribuição, `leads_nossos=0`).
+- **Marketplace**: tendência por canal (ML Battogo/Bononi/Full/Shopee), faturamento **LÍQUIDO de devolução** (25/08), pedidos, ticket, Δ R$/% vs período anterior, sparkline 6m, barra empilhada, coluna Devolução. (Removida toda a gestão de estoque ML Full.)
+- **Vendedores**: ranking **por líquido** (26/08, devolução por `id_vendedor`), KPIs bruto→devolução→líquido.
+- **Relatórios**: agrupamento produto/vendedor/mês com filtros amplos (canal/vendedor/grupo/subgrupo/produto), **líquido por linha** (26/08, devolução respeitando os mesmos filtros das vendas), export CSV.
+- **Atendimento**: funil de vendedores (`FunilVendedores.tsx`) com nova coluna **Faturamento (R$)** por vendedor (26/08, `valor_venda_erp` de `ecom_atd_funil`); KPI "Vendedores ativos" agora lê `vw_ecom_vendedores_ativos` (fonte = Hub, Config→Umbler→Usuários — o ecom só lê, não cadastra); mapa de calor 24h; TMR via `vw_ecom_tempo_resposta` (mediana, fonte `umbler_mensagens`).
+- **Devolução externa** (25–26/08): `vw_ecom_devolucao_externa` amarra devolução→venda ONLINE (`interna=false`), traz `id_vendedor`/`subgrupo`. Aplicada em Home, Marketplace, Vendedores e Relatórios. Detalhe completo na doc do app.
+
+## Correção de base (26/08/2026) — "faturamento do site sumido"
+**Não era bug de render** (a Home já tinha o card "Faturamento Site"). A plataforma migrou de `SITE` pra `TRAY` (Tray Commerce) entre abr–jul/26; `SITE` zerou e `TRAY` virou 100% do canal, mas `getCanal()` não reconhecia `TRAY` e jogava tudo pro bucket "vendedor" (inflando o ranking de vendedores e zerando o site). Fix: `SITE_NAMES` em `src/lib/query.ts` agora inclui `'TRAY'`. Corrige de uma vez Home, Vendedores, Marketplace e Relatórios (todos usam o mesmo `getCanal()`).
 
 ## Pendências / próximos passos
 - [ ] **Mover OFICIAL LV/LF pra Aplicação "GERAL SUPABASE"** na UI da Umbler e remover o webhook dedicado antigo (só o Leo faz). Enquanto coexistir = entrega dupla (não quebra).
-- [ ] Otimizar `vw_ecom_campanha_conversao` (500 intermitente por timeout; com filtro `mes_ref` responde 200).
-- [ ] Expor o funil `ecom_atd_funil`/comprou_erp de forma mais completa no front.
+- [ ] Otimizar `vw_ecom_campanha_conversao` (500 intermitente por timeout; com filtro `mes_ref` responde 200) — usada pelo pipeline antigo de Marketing, não pela nova aba ROI.
+- [ ] Se o Leo quiser, aplicar líquido de devolução também no gráfico 6m por vendedor (Home/Vendedores) e no pivô de produtos (Marketplace) — hoje ficam brutos de propósito.
 
 ## Dívidas e armadilhas conhecidas
 - **Bundle antigo em cache no navegador** foi a causa real de vários "bugs" que o Leo viu (Home em branco, #id/produtos vazios) — **hard refresh / redeploy** resolve; as queries e CORS estão OK.
@@ -33,6 +39,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-08-26 — **Comandos do cérebro (4 itens)**: (1) nova aba `/campanhas-roi` (fonte `vw_ecom_campanha_roi`); (2) fix `SITE_NAMES` inclui `TRAY` — resolve "site sumido" de vez, Home ganhou ROAS geral/CAC/Ticket médio; (3) "Vendedores ativos" lê `vw_ecom_vendedores_ativos` (Hub); (4) coluna Faturamento (R$) no funil via `valor_venda_erp`. Também: devolução externa estendida pra Vendedores (ranking por líquido) e Relatórios (líquido por linha, respeitando filtros); view `vw_ecom_devolucao_externa` ganhou `subgrupo`.
 - 2026-08-25 — **Marketplace líquido de devolução por canal** (PR #1, mergeado). `use-marketplace.ts`: `aggMktDev` lê `vw_ecom_devolucao_externa` e abate por canal (mesma classificação `getCanal`/`normMkt` do faturamento); série 6m neta com devolução como fat negativo. `Marketplace.tsx`: coluna Devolução + KPI "Total Marketplace (líq.)". Tabela de produtos fica bruta (mix/volume). Só externa abate; atribuição = mês da devolução. Validado ao vivo (jul: ML Battogo 170k, Full 91k, Bononi 141k, Shopee 78k). Home/Vendedores já netavam.
 - 2026-08-07 — TMR revivida (`vw_ecom_tempo_resposta*`, mediana); lote Atendimento/Relatórios/Vendedores.
 - 2026-08-06 — Remodela: Marketplace por canal, comparativos + aviso de mês parcial, TMR removida do ranking.
