@@ -9,6 +9,26 @@ import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
+// Tooltip do gráfico por vendedor: só mostra quem teve faturamento no mês (esconde os zerados),
+// do maior pro menor.
+function TooltipVendedores({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const itens = payload.filter((p:any) => (p.value||0) > 0).sort((a:any,b:any)=> b.value - a.value)
+  if (!itens.length) return null
+  return (
+    <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:12,boxShadow:'0 4px 16px rgba(15,29,53,.14)',minWidth:170}}>
+      <div style={{fontWeight:700,marginBottom:5}}>{label}</div>
+      {itens.map((p:any)=>(
+        <div key={p.dataKey} style={{display:'flex',alignItems:'center',gap:6,margin:'3px 0'}}>
+          <span style={{width:9,height:9,borderRadius:2,background:p.color,display:'inline-block',flexShrink:0}}/>
+          <span style={{flex:1,whiteSpace:'nowrap'}}>{p.dataKey}</span>
+          <span style={{fontFamily:'DM Mono',fontWeight:600,marginLeft:10}}>{fmtBRL(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // Retorna { label: "Jan/26", sortKey: "2026-01" }
 function mesInfo(iso: string): { label: string; sortKey: string } {
   const d = new Date(iso + 'T12:00:00')
@@ -131,9 +151,16 @@ export default function Home() {
       totais.set(v,(totais.get(v)||0)+Number(r.faturamento_doc))
     })
     const TOP = 8
-    const nomes = [...totais.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>k)
-    const principais = nomes.slice(0, TOP)
-    const temOutros = nomes.length > TOP
+    // "Principais" = vendedores que venderam no MÊS mais recente (ativos agora), ordenados
+    // pelo total do período. Quem não vendeu no mês atual (ex-vendedores) cai em "Outros" —
+    // assim somem os zerados e aparece quem está vendendo de fato (ex.: vendedor novo, Pedro).
+    const maxKey = [...byMes.keys()].sort().pop()
+    const ativosNoMes = new Set<string>()
+    if (maxKey) Object.entries(byMes.get(maxKey)!.vend).forEach(([n,v]) => { if ((v as number) > 0) ativosNoMes.add(n) })
+    const nomesOrd = [...totais.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>k)
+    let principais = nomesOrd.filter(n => ativosNoMes.has(n)).slice(0, TOP)
+    if (!principais.length) principais = nomesOrd.slice(0, TOP)  // fallback: mês sem vendas
+    const temOutros = nomesOrd.some(n => !principais.includes(n))
     const series = temOutros ? [...principais, 'Outros'] : principais
     // Ordena cronologicamente pelo sortKey (yyyy-mm); cada mês soma o restante em "Outros"
     const chartData = [...byMes.entries()]
@@ -274,7 +301,7 @@ export default function Home() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
                   <XAxis dataKey="mes" tick={{fontSize:11,fill:'var(--text-muted)'}}/>
                   <YAxis tick={{fontSize:11,fill:'var(--text-muted)'}} tickFormatter={v=>fmtBRL(v)} width={72}/>
-                  <Tooltip formatter={(v:number)=>fmtBRL(v)} contentStyle={{fontSize:12,borderRadius:8}}/>
+                  <Tooltip content={<TooltipVendedores/>}/>
                   <Legend wrapperStyle={{fontSize:11}}/>
                   {fat6Vend.series.map((v,i)=>(
                     <Bar key={v} dataKey={v} stackId="a" fill={v==='Outros'?COR_OUTROS:COLORS[i%COLORS.length]}
