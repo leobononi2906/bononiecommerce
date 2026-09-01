@@ -2,11 +2,12 @@ import { supabase } from '../lib/supabase'
 import { useQuery, getPeriodRange, getPreviousPeriodRange } from '../lib/query'
 import type { Periodo } from '../types'
 
-const FAT_COLS = 'id_vendedor,nome_vendedor,faturamento_doc,custo_doc,taxa_marketplace,faturamento_liquido,data_faturamento'
+// custo_doc apelidado do custo pelo PREÇO DE COMPRA (custo_doc_pc) — consumidores seguem usando r.custo_doc
+const FAT_COLS = 'id_vendedor,nome_vendedor,faturamento_doc,custo_doc:custo_doc_pc,taxa_marketplace,faturamento_liquido,data_faturamento'
 
 async function fetchFaturamento(start: string, end: string) {
   const { data, error } = await supabase
-    .from('vw_comercial_docs_faturados')
+    .from('vw_comercial_docs_margem')
     .select(FAT_COLS)
     .eq('tipo_saida', 'ONLINE')
     .gte('data_faturamento', start)
