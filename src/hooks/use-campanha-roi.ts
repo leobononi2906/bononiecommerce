@@ -1,7 +1,10 @@
 import { supabase } from '../lib/supabase'
-import { useQuery } from '../lib/query'
+import { useQuery, getPeriodRange } from '../lib/query'
+import type { Periodo } from '../types'
 
-// Fonte única de ROI real por campanha (últimos 60 dias, já vem pronta do Supabase — sem join manual).
+// Fonte única de ROI real por campanha, filtrável pelo período selecionado no topo.
+// Chama a RPC ecom_campanha_roi(inicio, fim) — mesma lógica da antiga vw_ecom_campanha_roi
+// (que era fixa em 60 dias): investimento pela data do anúncio, leads/vendas pela data do lead.
 // Substitui o pipeline antigo (Meta Ads × TikTim × ecom_campanha_subgrupo) para quem só precisa do resultado.
 export interface CampanhaRoi {
   campanha: string
@@ -16,12 +19,11 @@ export interface CampanhaRoi {
   roas: number
 }
 
-export function useCampanhaRoi() {
+export function useCampanhaRoi(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
   return useQuery<CampanhaRoi[]>(async () => {
     const { data, error } = await supabase
-      .from('vw_ecom_campanha_roi')
-      .select('*')
-      .range(0, 999)
+      .rpc('ecom_campanha_roi', { p_inicio: start, p_fim: end })
     if (error) throw error
     return (data || []).map((r: any) => ({
       campanha: r.campanha,
@@ -35,5 +37,5 @@ export function useCampanhaRoi() {
       cpl: r.cpl != null ? Number(r.cpl) : null,
       roas: Number(r.roas) || 0,
     }))
-  }, [])
+  }, [start, end])
 }
