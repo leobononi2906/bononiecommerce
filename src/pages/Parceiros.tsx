@@ -251,7 +251,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
 
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:200,display:'flex',justifyContent:'flex-end'}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div style={{width:520,background:'#fff',height:'100%',overflowY:'auto',boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
+      <div className="parc-drawer" style={{width:520,maxWidth:'100vw',background:'#fff',height:'100%',overflowY:'auto',boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
         {/* Header drawer */}
         <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#fff',zIndex:1}}>
           <div style={{fontSize:16,fontWeight:700,color:C.blueDark,...font}}>{isNovo?'Novo Parceiro':form.nome||'Parceiro'}</div>
@@ -271,7 +271,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
 
         <div style={{padding:24,display:'grid',gap:18,flex:1}}>
           {/* DADOS BÁSICOS */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div className="parc-grid2" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:12}}>
             <div style={{gridColumn:'1/-1'}}>
               {label('Nome do Parceiro *')}
               <input value={form.nome??''} onChange={e=>set('nome',e.target.value)} placeholder="ex: João Caminhoneiro" style={inp}/>
@@ -297,7 +297,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
           </div>
 
           {/* CONTATO */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div className="parc-grid2" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:12}}>
             <div>
               {label('WhatsApp')}
               <input value={form.contato_whatsapp??''} onChange={e=>set('contato_whatsapp',e.target.value)} placeholder="(41) 99999-9999" style={inp}/>
@@ -310,7 +310,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
 
           {/* STATUS */}
           <div style={{borderTop:`1px solid ${C.border}`,paddingTop:16}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div className="parc-grid2" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:12}}>
               <div>
                 {label('Status')}
                 <select value={form.status??'Negociando'} onChange={e=>set('status',e.target.value)} style={inp}>
@@ -345,7 +345,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
                         <Trash2 size={13}/>
                       </button>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                    <div className="parc-grid2" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:12}}>
                       <div>
                         {label('Modalidade')}
                         <ListaSelect value={a.id_modalidade} onChange={v=>setAcordo(a.id,'id_modalidade',v)}
@@ -362,7 +362,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
                         {label('Valor / %')}
                         <input type="number" value={a.valor_acordo??''} onChange={e=>setAcordo(a.id,'valor_acordo',e.target.value===''?null:parseFloat(e.target.value))} placeholder="ex: 10 ou 500" style={inp}/>
                       </div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                      <div className="parc-grid2" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:8}}>
                         <div>{label('Início')}<input type="date" value={a.vigencia_inicio??''} onChange={e=>setAcordo(a.id,'vigencia_inicio',e.target.value||null)} style={inp}/></div>
                         <div>{label('Fim')}<input type="date" value={a.vigencia_fim??''} onChange={e=>setAcordo(a.id,'vigencia_fim',e.target.value||null)} style={inp}/></div>
                       </div>

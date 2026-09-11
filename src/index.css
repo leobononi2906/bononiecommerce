@@ -89,3 +89,11 @@ body {
   .ecom-scroll-x::-webkit-scrollbar { height: 6px; }
   .ecom-scroll-x::-webkit-scrollbar-thumb { background: var(--text-hint); }
 }
+
+/* Drawer de Parceiros (Marketing): ocupa a tela inteira em vez de fixar 520px, e empilha os
+   campos em 1 coluna — sem isso, no Acordo, os inputs (o de data em especial) forçam a grade
+   a exigir mais largura do que cabe, e o drawer passa a rolar na horizontal sem indicar isso. */
+@media (max-width: 560px) {
+  .parc-drawer { width: 100vw !important; }
+  .parc-grid2 { grid-template-columns: 1fr !important; }
+}
