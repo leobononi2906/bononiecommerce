@@ -138,13 +138,22 @@ function useFaturamentoExclMkt(periodo: Periodo) {
 
 // ── Hook principal: verdicts por campanha (atribuição real) ─
 export function useCampaignVerdicts(periodo: Periodo) {
-  const { data: metaAds, loading: l1 } = useMetaAds(periodo)
-  const { data: daily, loading: l2 } = useMetaAdsDaily(periodo)
-  const { data: campSub, loading: l3 } = useCampanhaSubgrupos()
-  const { data: conversao, loading: l4 } = useConversaoReal(periodo)
-  const { data: fatTotal, loading: l5 } = useFaturamentoExclMkt(periodo)
+  const { data: metaAds, loading: l1, error: e1, reload: r1 } = useMetaAds(periodo)
+  const { data: daily, loading: l2, error: e2, reload: r2 } = useMetaAdsDaily(periodo)
+  const { data: campSub, loading: l3, error: e3, reload: r3 } = useCampanhaSubgrupos()
+  const { data: conversao, loading: l4, error: e4, reload: r4 } = useConversaoReal(periodo)
+  const { data: fatTotal, loading: l5, error: e5, reload: r5 } = useFaturamentoExclMkt(periodo)
 
   const loading = l1 || l2 || l3 || l4 || l5
+  // Sem propagar isto, falha de carga vira "nenhuma campanha no período" — que é uma frase,
+  // não um erro. `vw_ecom_campanha_conversao` é justamente uma das que estouram o timeout.
+  const fontes = [
+    { nome: 'Meta Ads', error: e1, reload: r1 },
+    { nome: 'Meta Ads (diário)', error: e2, reload: r2 },
+    { nome: 'Campanha × subgrupo', error: e3, reload: r3 },
+    { nome: 'Conversão por campanha', error: e4, reload: r4 },
+    { nome: 'Faturamento', error: e5, reload: r5 },
+  ]
 
   const campaigns = useMemo((): CampaignAnalysis[] => {
     if (!metaAds || !daily || !campSub || !conversao) return []
@@ -261,7 +270,7 @@ export function useCampaignVerdicts(periodo: Periodo) {
     return { total, escalar, manter, monitorar, pausar, totalSpend, totalRevenue, totalLeads, totalVendas, overallRoas, overallCpl, overallCpa, pctInvestFat }
   }, [campaigns, fatTotal])
 
-  return { campaigns, summary, loading }
+  return { campaigns, summary, loading, fontes }
 }
 
 // ── Subgroup analysis with previous period comparison ──────

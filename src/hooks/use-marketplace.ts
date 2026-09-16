@@ -88,14 +88,50 @@ export function useMarketplaceCanais(periodo: Periodo) {
   }, [cur.start, cur.end, prev.start, prev.end])
 }
 
-// Canais de marketplace por id_vendedor no ERP (a view de itens só traz id).
-// Mesma origem dos nomes classificados por getCanal() em vw_comercial_docs_faturados.
-export const MKT_CANAIS: { id: number; label: string }[] = [
-  { id: 79832, label: 'ML Battogo' },
-  { id: 79830, label: 'ML Bononi' },
-  { id: 79831, label: 'ML Full' },
-  { id: 46961, label: 'Shopee' },
-]
+export interface MktCanalId { id: number; label: string }
+
+/** Rótulo curto de exibição. Só encurta o que já era apelido conhecido — canal novo aparece
+ *  com o nome que tem no ERP, em vez de sumir da tela. */
+const APELIDO: Record<string, string> = {
+  'ML BATTOGO': 'ML Battogo',
+  'ML BONONI': 'ML Bononi',
+  'ML BONONI FULL': 'ML Full',
+  'SHOPEE BRASIL': 'Shopee',
+}
+export function rotuloCanal(nome: string): string {
+  const n = normMkt(nome)
+  return APELIDO[n] ?? n.replace(/\b\w+/g, p => p.length > 2 ? p[0] + p.slice(1).toLowerCase() : p)
+}
+
+/**
+ * Canais de marketplace com o id_vendedor do ERP — DESCOBERTOS a partir do faturamento, não
+ * escritos à mão. A view de itens só traz `id_vendedor`, mas a de documentos traz id + nome,
+ * então o canal é classificado pelo mesmo `getCanal()` do resto do app.
+ *
+ * Era uma lista fixa de 4 ids. Quando o ERP passou a faturar por 'ML MLB PR' (id 88661, R$ 108k
+ * em set/26) o canal aparecia no total por canal e **sumia** da tabela por produto — a mesma
+ * tela não fechava consigo mesma, e nada no código acusava.
+ */
+export function useMktCanais() {
+  return useQuery<MktCanalId[]>(async () => {
+    const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
+    const { data, error } = await supabase
+      .from('vw_comercial_docs_faturados')
+      .select('id_vendedor,nome_vendedor')
+      .eq('tipo_saida', 'ONLINE')
+      .gte('data_faturamento', d.toISOString().slice(0, 10))
+      .range(0, 9999)
+    if (error) throw error
+    const porId = new Map<number, string>()
+    ;(data || []).forEach((r: any) => {
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      if (r.id_vendedor != null) porId.set(Number(r.id_vendedor), r.nome_vendedor)
+    })
+    return [...porId.entries()]
+      .map(([id, nome]) => ({ id, label: rotuloCanal(nome) }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+  }, [])
+}
 
 export interface MktProdutoRow {
   canalId: number
@@ -106,11 +142,13 @@ export interface MktProdutoRow {
   fat: number
 }
 
-/** Itens faturados por produto/mês nos canais de marketplace (últimos 6 meses). */
-export function useMarketplaceProdutos6Meses() {
+/** Itens faturados por produto/mês nos canais de marketplace (últimos 6 meses).
+ *  Recebe os ids descobertos por `useMktCanais` — nunca uma lista escrita à mão. */
+export function useMarketplaceProdutos6Meses(ids: number[] | null) {
+  const chave = (ids || []).join(',')
   return useQuery<MktProdutoRow[]>(async () => {
+    if (!ids || !ids.length) return []
     const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
-    const ids = MKT_CANAIS.map(c => c.id)
     const { data, error } = await supabase
       .from('vw_comercial_itens_faturados')
       .select('id_vendedor,referencia,produto,data_faturamento,qtd,total_item')
@@ -127,7 +165,7 @@ export function useMarketplaceProdutos6Meses() {
       qtd: Number(r.qtd) || 0,
       fat: Number(r.total_item) || 0,
     }))
-  }, [])
+  }, [chave])
 }
 
 /** Série mensal (últimos 6 meses) por canal — LÍQUIDA. Devolução entra como fat negativo

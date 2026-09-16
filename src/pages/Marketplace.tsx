@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, ShoppingBag } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, MKT_CANAIS } from '../hooks/useData'
+import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais } from '../hooks/useData'
 import type { MktCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
@@ -71,7 +71,10 @@ export default function Marketplace() {
   const { periodo } = usePeriodo()
   const { data, loading, error } = useMarketplaceCanais(periodo)
   const { data: seis, loading: l6 } = useMarketplace6Meses()
-  const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses()
+  // Canais descobertos do próprio faturamento: canal novo no ERP entra sozinho na tabela
+  // de produtos e no seletor, em vez de ficar de fora sem aviso.
+  const { data: mktCanais } = useMktCanais()
+  const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses(mktCanais?.map(c => c.id) ?? null)
   const [canalSel, setCanalSel] = useState<number | 'ALL'>('ALL')
   const [metric, setMetric] = useState<'fat' | 'qtd'>('fat')
 
@@ -249,7 +252,7 @@ export default function Marketplace() {
             {/* Filtros: canal + métrica */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {[{ v: 'ALL' as const, l: 'Todos' }, ...MKT_CANAIS.map(c => ({ v: c.id, l: c.label }))].map(opt => {
+                {[{ v: 'ALL' as const, l: 'Todos' }, ...(mktCanais ?? []).map(c => ({ v: c.id, l: c.label }))].map(opt => {
                   const active = canalSel === opt.v
                   return (
                     <button key={String(opt.v)} onClick={() => setCanalSel(opt.v)}

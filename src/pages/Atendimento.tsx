@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useLeads, useLeadsRecentes, useTempoResposta, useMetaAds, useVendedoresAtivosCount } from '../hooks/useData'
-import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
+import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
 import { fmtMinutes, fmtNum } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
@@ -12,10 +12,10 @@ const HORAS = Array.from({ length: 24 }, (_, h) => `${h}h`)
 
 export default function Atendimento() {
   const { periodo } = usePeriodo()
-  const { data: leads, loading: lleads } = useLeads(periodo)
+  const { data: leads, loading: lleads, error: eleads, reload: rleads } = useLeads(periodo)
   const { data: leads30 } = useLeadsRecentes(30)
-  const { data: tempoResp, loading: ltempo } = useTempoResposta(periodo)
-  const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
+  const { data: tempoResp, loading: ltempo, error: etempo, reload: rtempo } = useTempoResposta(periodo)
+  const { data: metaAds, loading: lmeta, error: emeta, reload: rmeta } = useMetaAds(periodo)
   const { data: vendedoresAtivos } = useVendedoresAtivosCount()
 
   const totalLeads = leads?.length ?? 0
@@ -69,11 +69,17 @@ export default function Atendimento() {
         
       </PageHeader>
 
+      <AvisoFalhaDeCarga fontes={[
+        { nome: 'Leads', error: eleads, reload: rleads },
+        { nome: 'Tempo de resposta', error: etempo, reload: rtempo },
+        { nome: 'Meta Ads', error: emeta, reload: rmeta },
+      ]} />
+
       <SectionLabel>KPIs de atendimento</SectionLabel>
       <KpiGrid cols={4}>
-        <KpiCard label="Leads recebidos" value={fmtNum(totalLeads)} icon="👥" highlight />
-        <KpiCard label="Leads Meta Ads" value={fmtNum(totalLeadsMeta)} sub={cpl > 0 ? `CPL: R$ ${cpl.toFixed(2)}` : undefined} />
-        <KpiCard label="Tempo de resposta (mediana)" value={fmtMinutes(medianaGeral)} sub="1ª msg → 1ª resposta" />
+        <KpiCard label="Leads recebidos" value={kpiValor(eleads, lleads, fmtNum(totalLeads))} icon="👥" highlight />
+        <KpiCard label="Leads Meta Ads" value={kpiValor(emeta, lmeta, fmtNum(totalLeadsMeta))} sub={!emeta && cpl > 0 ? `CPL: R$ ${cpl.toFixed(2)}` : undefined} />
+        <KpiCard label="Tempo de resposta (mediana)" value={kpiValor(etempo, ltempo, fmtMinutes(medianaGeral))} sub="1ª msg → 1ª resposta" />
         <KpiCard label="Vendedores ativos" value={vendedoresAtivos != null ? String(vendedoresAtivos) : '…'} sub="config no Hub · Umbler → Usuários" />
       </KpiGrid>
 
@@ -117,7 +123,11 @@ export default function Atendimento() {
         <Col flex={1}>
           <Card>
             <CardTitle>Tempo de resposta ao cliente — por vendedor <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— 1ª mensagem do cliente → 1ª resposta do vendedor · só cadastrados</span></CardTitle>
-            {ltempo ? <Spinner /> : tempoVendedor.length === 0 ? (
+            {ltempo ? <Spinner /> : etempo ? (
+              <div style={{ textAlign:'center', color:'var(--red)', padding:24, fontSize:13 }}>
+                Não foi possível carregar o tempo de resposta — veja o aviso no topo da página.
+              </div>
+            ) : tempoVendedor.length === 0 ? (
               <div style={{ textAlign:'center', color:'var(--text-muted)', padding:24, fontSize:13 }}>Nenhum atendimento no período selecionado.</div>
             ) : (
               <div className="ecom-scroll-x">

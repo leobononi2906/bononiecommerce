@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useFaturamentoPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
-import { KpiCard, Spinner, Card, CardTitle } from '../components/ui'
+import { KpiCard, Spinner, Card, CardTitle, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
 import { RefreshCw } from 'lucide-react'
@@ -18,11 +18,11 @@ const COR_OUTROS = '#CBD5E1'
 
 export default function Vendedores() {
   const { periodo } = usePeriodo()
-  const { data: fatP,    loading: lfp  } = useFaturamentoPeriodo(periodo)
-  const { data: fat6,    loading: lf6  } = useFaturamento6Meses()
-  const { data: devP                   } = useDevolucaoPorVendedorPeriodo(periodo)
-  const { data: leads                  } = useLeads(periodo)
-  const { data: umbler                 } = useUmblerVendedores()
+  const { data: fatP,    loading: lfp,  error: efp,    reload: rfp    } = useFaturamentoPeriodo(periodo)
+  const { data: fat6,    loading: lf6,  error: ef6,    reload: rf6    } = useFaturamento6Meses()
+  const { data: devP,                 error: edp,    reload: rdp    } = useDevolucaoPorVendedorPeriodo(periodo)
+  const { data: leads,                error: eleads, reload: rleads } = useLeads(periodo)
+  const { data: umbler,               error: eumbler,reload: rumbler} = useUmblerVendedores()
   const [lastRefresh, setLastRefresh]    = useState(new Date())
 
   // Gráfico 6 meses por vendedor (canal vendedor) — top 10 nominais + Outros, inclui quem já saiu
@@ -116,10 +116,17 @@ export default function Vendedores() {
     const total = ranked.reduce((s,v)=>s+v.fat,0)
     const devolucao = ranked.reduce((s,v)=>s+v.devolucao,0)
     const docs  = ranked.reduce((s,v)=>s+v.docs,0)
-    const leadsTotal = ranked.reduce((s,v)=>s+v.leads,0)
+    const leadsVinculados = ranked.reduce((s,v)=>s+v.leads,0)
+    // O denominador da conversão são TODOS os leads de vendedor (menos os internos), não só os
+    // de quem tem vínculo Umbler↔ERP cadastrado. Contar só os vinculados enquanto o numerador
+    // soma os pedidos de todo mundo inflava a taxa — o Pedro sozinho tirava ~700 leads da conta.
+    const internos = new Set((umbler||[]).filter((u:any)=>u.interno).map((u:any)=>u.id_membro_umbler))
+    const leadsTotal = (leads||[]).filter((l:any)=>l.id_vendedor && !internos.has(l.id_vendedor)).length
+    const leadsSemVinculo = Math.max(0, leadsTotal - leadsVinculados)
     const conv = leadsTotal > 0 ? (docs/leadsTotal)*100 : 0
-    return { total, devolucao, liquido: total-devolucao, docs, ativos: ranked.length, leadsTotal, conv }
-  }, [ranked])
+    return { total, devolucao, liquido: total-devolucao, docs, ativos: ranked.length,
+             leadsTotal, leadsVinculados, leadsSemVinculo, conv }
+  }, [ranked, leads, umbler])
 
   const medals = ['🥇','🥈','🥉']
 
@@ -138,20 +145,41 @@ export default function Vendedores() {
         </div>
       </PageHeader>
 
+      <AvisoFalhaDeCarga fontes={[
+        { nome: 'Faturamento',  error: efp,     reload: rfp },
+        { nome: 'Devolução',    error: edp,     reload: rdp },
+        { nome: 'Leads',        error: eleads,  reload: rleads },
+        { nome: 'Vínculos Umbler', error: eumbler, reload: rumbler },
+        { nome: 'Faturamento 6 meses', error: ef6, reload: rf6 },
+      ]} />
+
       <KpiGrid cols={4}>
-        <KpiCard label="Faturamento (bruto)" value={fmtBRL(kpis.total)} />
-        <KpiCard label="Devolução externa"   value={'− '+fmtBRL(kpis.devolucao)}
-          sub={kpis.total>0?`${(kpis.devolucao/kpis.total*100).toFixed(1)}% do bruto`:undefined}
+        <KpiCard label="Faturamento (bruto)" value={kpiValor(efp, lfp, fmtBRL(kpis.total))} />
+        <KpiCard label="Devolução externa"   value={kpiValor(edp, lfp, '− '+fmtBRL(kpis.devolucao))}
+          sub={!edp&&kpis.total>0?`${(kpis.devolucao/kpis.total*100).toFixed(1)}% do bruto`:undefined}
           trend={kpis.devolucao>0?'down':'neutral'} />
-        <KpiCard label="Faturamento líquido" value={fmtBRL(kpis.liquido)} highlight />
-        <KpiCard label="Pedidos (período)"    value={fmtNum(kpis.docs)} />
+        <KpiCard label="Faturamento líquido" value={kpiValor(efp||edp, lfp, fmtBRL(kpis.liquido))} highlight />
+        <KpiCard label="Pedidos (período)"    value={kpiValor(efp, lfp, fmtNum(kpis.docs))} />
       </KpiGrid>
 
       <KpiGrid cols={2}>
-        <KpiCard label="Leads Umbler"         value={fmtNum(kpis.leadsTotal)} />
-        <KpiCard label="Conversão geral"      value={kpis.conv > 0 ? fmtPct(kpis.conv, 1) : '–'}
-          sub={kpis.leadsTotal > 0 ? `${kpis.docs} pedidos ÷ ${kpis.leadsTotal} leads` : undefined} />
+        <KpiCard label="Leads Umbler"    value={kpiValor(eleads, lfp, fmtNum(kpis.leadsTotal))}
+          sub={!eleads&&kpis.leadsSemVinculo>0 ? `${fmtNum(kpis.leadsSemVinculo)} sem vínculo Umbler↔ERP` : undefined} />
+        <KpiCard label="Conversão geral"  value={kpiValor(eleads||efp, lfp, kpis.conv>0 ? fmtPct(kpis.conv,1) : '–')}
+          sub={!eleads&&kpis.leadsTotal>0 ? `${kpis.docs} pedidos ÷ ${fmtNum(kpis.leadsTotal)} leads` : undefined} />
       </KpiGrid>
+
+      {kpis.leadsSemVinculo > 0 && (
+        <div style={{marginBottom:14}}>
+          <AlertBanner type="warning">
+            <span>
+              <strong>{fmtNum(kpis.leadsSemVinculo)} leads do período são de atendentes sem vínculo Umbler↔ERP.</strong>{' '}
+              Eles entram no total e na conversão geral, mas <strong>não aparecem por vendedor</strong> no ranking
+              abaixo (linha com “–” na coluna Conversão). Cadastre o vínculo em Configurações → Umbler.
+            </span>
+          </AlertBanner>
+        </div>
+      )}
 
       <Card style={{marginBottom:16}}>
         <CardTitle>Ranking — faturamento líquido ({ranked.length} vendedores) <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— já desconta devolução externa</span></CardTitle>

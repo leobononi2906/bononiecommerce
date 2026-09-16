@@ -2,8 +2,8 @@ import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
-  useSubgrupos, useLeads, useMetaAds, getCanal } from '../hooks/useData'
-import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
+  useSubgrupos, useLeads, useMetaAds, getCanal, getPeriodRange } from '../hooks/useData'
+import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
@@ -40,15 +40,19 @@ function mesInfo(iso: string): { label: string; sortKey: string } {
 
 export default function Home() {
   const { periodo } = usePeriodo()
-  const { data: fat6,   loading: lf6 }  = useFaturamento6Meses()
-  const { data: fatP,   loading: lfp }  = useFaturamentoPeriodo(periodo)
-  const { data: fatAnt                } = useFaturamentoPeriodoAnterior(periodo)
-  const { data: dev6,   loading: ld6 }  = useDevolucao6Meses()
-  const { data: devP                  } = useDevolucaoPeriodo(periodo)
-  const { data: devAnt                } = useDevolucaoPeriodoAnterior(periodo)
-  const { data: subs,   loading: lsub } = useSubgrupos(periodo)
-  const { data: leads,  loading: ll }   = useLeads(periodo)
-  const { data: metaAds, loading: lmeta } = useMetaAds(periodo)
+  const { data: fat6,   loading: lf6,  error: ef6,   reload: rf6 }   = useFaturamento6Meses()
+  const { data: fatP,   loading: lfp,  error: efp,   reload: rfp }   = useFaturamentoPeriodo(periodo)
+  const { data: fatAnt,              error: efant, reload: rfant } = useFaturamentoPeriodoAnterior(periodo)
+  const { data: dev6,                error: ed6,   reload: rd6 }   = useDevolucao6Meses()
+  const { data: devP,                error: edp,   reload: rdp }   = useDevolucaoPeriodo(periodo)
+  const { data: devAnt,              error: edant, reload: rdant } = useDevolucaoPeriodoAnterior(periodo)
+  const { data: subs,   loading: lsub, error: esub,  reload: rsub }  = useSubgrupos(periodo)
+  const { data: leads,  loading: ll,   error: eleads, reload: rleads } = useLeads(periodo)
+  const { data: metaAds, loading: lmeta, error: emeta, reload: rmeta } = useMetaAds(periodo)
+
+  // Um KPI que soma bruto e devolução só é confiável se AS DUAS cargas vieram.
+  const eTotal = efp || edp
+  const eTotalAnt = efant || edant
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -109,6 +113,25 @@ export default function Home() {
       cac: investimento>0 && pedidos>0 ? investimento/pedidos : 0,
     }
   }, [metaAds, canais.site, canais.vendedor, fatP])
+
+  // Quantos dias do período JÁ ACONTECERAM mas ainda não têm carga de Meta Ads.
+  // ROAS e CAC dividem receita do período inteiro por investimento só até o último dia carregado:
+  // enquanto a carga estiver atrasada os dois ficam inflados, e sem este aviso parecem resultado.
+  const metaAtraso = useMemo(() => {
+    const vazio = { dias: 0, ultimo: '' }
+    if (emeta || lmeta) return vazio
+    const fimDoPeriodo = getPeriodRange(periodo).end
+    const hoje = new Date().toISOString().slice(0,10)
+    const fimEsperado = fimDoPeriodo < hoje ? fimDoPeriodo : hoje
+    const ultimo = (metaAds||[]).reduce<string>((max,r:any) => r.data > max ? r.data : max, '')
+    if (!ultimo) return vazio
+    const dias = Math.round((Date.parse(fimEsperado) - Date.parse(ultimo)) / 86400000)
+    return dias > 0 ? { dias, ultimo } : vazio
+  }, [metaAds, emeta, lmeta, periodo])
+  const diasSemMetaAds = metaAtraso.dias
+  const ultimoDiaMetaAds = metaAtraso.ultimo
+    ? metaAtraso.ultimo.slice(8,10) + '/' + metaAtraso.ultimo.slice(5,7)
+    : ''
 
   // Ticket médio do site no período selecionado
   const ticketSite = useMemo(() => {
@@ -219,46 +242,75 @@ export default function Home() {
         </div>
       )}
 
+      <AvisoFalhaDeCarga fontes={[
+        { nome: 'Faturamento do período',  error: efp,    reload: rfp },
+        { nome: 'Faturamento do período anterior', error: efant, reload: rfant },
+        { nome: 'Devolução do período',    error: edp,    reload: rdp },
+        { nome: 'Devolução do período anterior', error: edant, reload: rdant },
+        { nome: 'Faturamento 6 meses',     error: ef6,    reload: rf6 },
+        { nome: 'Devolução 6 meses',       error: ed6,    reload: rd6 },
+        { nome: 'Subgrupos',               error: esub,   reload: rsub },
+        { nome: 'Leads',                   error: eleads, reload: rleads },
+        { nome: 'Meta Ads',                error: emeta,  reload: rmeta },
+      ]} />
+
       <SectionLabel>Faturamento por canal — período selecionado</SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Faturamento Vendedores"  value={lfp?'…':fmtBRL(canais.vendedor)} highlight
-          {...(lfp?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
-        <KpiCard label="Faturamento Site"         value={lfp?'…':fmtBRL(canais.site)}
-          {...(lfp?{}:cmp(canais.site, canaisAnt.site))} />
-        <KpiCard label="Faturamento Marketplace"  value={lfp?'…':fmtBRL(canais.marketplace)}
-          {...(lfp?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
+        <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp, lfp, fmtBRL(canais.vendedor))} highlight
+          {...(lfp||eTotalAnt?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
+        <KpiCard label="Faturamento Site"         value={kpiValor(efp, lfp, fmtBRL(canais.site))}
+          {...(lfp||eTotalAnt?{}:cmp(canais.site, canaisAnt.site))} />
+        <KpiCard label="Faturamento Marketplace"  value={kpiValor(efp, lfp, fmtBRL(canais.marketplace))}
+          {...(lfp||eTotalAnt?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
       </KpiGrid>
 
       <SectionLabel>Líquido após devolução externa — período selecionado</SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Total ONLINE (bruto)"   value={lfp?'…':fmtBRL(canais.total)}
-          {...(lfp?{}:cmp(canais.total, canaisAnt.total))} />
-        <KpiCard label="Devolução externa"       value={lfp?'…':('− '+fmtBRL(devol.total))}
-          sub={lfp?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
-        <KpiCard label="Total ONLINE líquido"    value={lfp?'…':fmtBRL(liq.total)} highlight
-          {...(lfp?{}:cmp(liq.total, liqAnt.total))} />
+        <KpiCard label="Total ONLINE (bruto)"   value={kpiValor(efp, lfp, fmtBRL(canais.total))}
+          {...(lfp||eTotalAnt?{}:cmp(canais.total, canaisAnt.total))} />
+        <KpiCard label="Devolução externa"       value={kpiValor(edp, lfp, '− '+fmtBRL(devol.total))}
+          sub={lfp||eTotal?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
+        <KpiCard label="Total ONLINE líquido"    value={kpiValor(eTotal, lfp, fmtBRL(liq.total))} highlight
+          {...(lfp||eTotal||eTotalAnt?{}:cmp(liq.total, liqAnt.total))} />
       </KpiGrid>
 
       <SectionLabel>Tráfego — retorno sobre investimento <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— o tráfego (Meta Ads) alimenta vendas do site E dos vendedores (fechadas por WhatsApp); ROAS/CAC = (site + vendedores) ÷ investimento em tráfego, período selecionado</span></SectionLabel>
+
+      {diasSemMetaAds > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <AlertBanner type="warning">
+            <span>
+              <strong>Investimento em tráfego incompleto: faltam {diasSemMetaAds} dia{diasSemMetaAds>1?'s':''} de carga do Meta Ads.</strong>{' '}
+              A receita abaixo é do período inteiro e o investimento só vai até {ultimoDiaMetaAds} —
+              então <strong>ROAS está alto demais e CAC baixo demais</strong>. Não decida por estes dois até a carga voltar.
+            </span>
+          </AlertBanner>
+        </div>
+      )}
+
       <KpiGrid cols={4}>
-        <KpiCard label="Faturamento do site"  value={lfp?'…':fmtBRL(canais.site)} highlight />
-        <KpiCard label="ROAS geral"           value={(lfp||lmeta)?'…':(roiTotais.roas.toFixed(1)+'x')}
-          sub={(lfp||lmeta)?undefined:`(site+vend.) ÷ tráfego (${fmtBRL(roiTotais.investimento)})`} />
-        <KpiCard label="CAC"                  value={(lfp||lmeta)?'…':(roiTotais.pedidos>0?fmtBRL(roiTotais.cac):'–')}
-          sub={(lfp||lmeta)?undefined:`${roiTotais.pedidos} pedidos (site+vend.)`} />
-        <KpiCard label="Ticket médio (site)"  value={lfp?'…':(ticketSite>0?fmtBRL(ticketSite):'–')} />
+        <KpiCard label="Faturamento do site"  value={kpiValor(efp, lfp, fmtBRL(canais.site))} highlight />
+        <KpiCard label="ROAS geral"           value={kpiValor(efp||emeta, lfp||lmeta, roiTotais.roas.toFixed(1)+'x')}
+          sub={(lfp||lmeta||efp||emeta)?undefined:`(site+vend.) ÷ tráfego (${fmtBRL(roiTotais.investimento)})${diasSemMetaAds>0?' · parcial':''}`} />
+        <KpiCard label="CAC"                  value={kpiValor(efp||emeta, lfp||lmeta, roiTotais.pedidos>0?fmtBRL(roiTotais.cac):'–')}
+          sub={(lfp||lmeta||efp||emeta)?undefined:`${roiTotais.pedidos} pedidos (site+vend.)${diasSemMetaAds>0?' · parcial':''}`} />
+        <KpiCard label="Ticket médio (site)"  value={kpiValor(efp, lfp, ticketSite>0?fmtBRL(ticketSite):'–')} />
       </KpiGrid>
 
       <KpiGrid cols={3}>
-        <KpiCard label="Top subgrupo"   value={lsub?'…':(topSubs[0]?.nome||'–')} sub={topSubs[0]?fmtBRL(topSubs[0].fat):''} />
-        <KpiCard label="Leads (período)" value={ll?'…':fmtNum(leads?.length??0)} />
+        <KpiCard label="Top subgrupo"   value={kpiValor(esub, lsub, topSubs[0]?.nome||'–')} sub={topSubs[0]&&!esub?fmtBRL(topSubs[0].fat):''} />
+        <KpiCard label="Leads (período)" value={kpiValor(eleads, ll, fmtNum(leads?.length??0))} />
       </KpiGrid>
 
       <Row>
         <Col flex={6}>
           <Card>
             <CardTitle>Top subgrupos — faturamento</CardTitle>
-            {lsub ? <Spinner /> : (
+            {lsub ? <Spinner /> : esub ? (
+              <div style={{textAlign:'center',color:'var(--red)',padding:24,fontSize:13}}>
+                Não foi possível carregar os subgrupos — veja o aviso no topo da página.
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={topSubs} margin={{top:0,right:0,left:0,bottom:40}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
@@ -295,7 +347,11 @@ export default function Home() {
         <Col flex={1}>
           <Card>
             <CardTitle>Por vendedor (ONLINE, excluindo marketplace e site)</CardTitle>
-            {lf6 ? <Spinner /> : (
+            {lf6 ? <Spinner /> : ef6 ? (
+              <div style={{textAlign:'center',color:'var(--red)',padding:24,fontSize:13}}>
+                Não foi possível carregar os 6 meses — veja o aviso no topo da página.
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={fat6Vend.chartData} margin={{top:0,right:0,left:0,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
@@ -315,8 +371,12 @@ export default function Home() {
       </Row>
 
       <Card>
-        <CardTitle>Por departamento — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta a devolução externa</span></CardTitle>
-        {lf6 ? <Spinner /> : (
+        <CardTitle>Por departamento — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta a devolução externa{ed6 && !ef6 ? ' · devolução não carregou: a coluna Devolução e o Líquido estão incompletos' : ''}</span></CardTitle>
+        {lf6 ? <Spinner /> : ef6 ? (
+          <div style={{textAlign:'center',color:'var(--red)',padding:24,fontSize:13}}>
+            Não foi possível carregar os 6 meses — veja o aviso no topo da página.
+          </div>
+        ) : (
           <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,minWidth:640}}>
             <thead><tr>

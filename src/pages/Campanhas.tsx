@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { usePeriodo } from '../components/layout/AppShell'
 import { useCampaignVerdicts, useSubgroupAnalysis, useCampaignDetails, useMetaAdsMensal } from '../hooks/use-campaigns'
 import { useThresholds } from '../hooks/use-thresholds'
-import { KpiCard, Spinner, SectionLabel, Card, CardTitle } from '../components/ui'
+import { KpiCard, Spinner, SectionLabel, Card, CardTitle, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/fmt'
 import GoldilocksGauge from '../components/campaigns/GoldilocksGauge'
@@ -19,7 +19,8 @@ function mesInfo(iso: string): { label: string; sortKey: string } {
 export default function Campanhas() {
   const { periodo } = usePeriodo()
   const { thresholds } = useThresholds()
-  const { campaigns, summary, loading } = useCampaignVerdicts(periodo)
+  const { campaigns, summary, loading, fontes } = useCampaignVerdicts(periodo)
+  const houveFalha = fontes.some(f => f.error)
   const { data: details } = useCampaignDetails(periodo)
   const { data: mensal } = useMetaAdsMensal()
   const subgroups = useSubgroupAnalysis(periodo)
@@ -47,6 +48,8 @@ export default function Campanhas() {
 
   return (
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
+      <AvisoFalhaDeCarga fontes={fontes} />
+
       {mesParcial && (
         <div style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid #FCE3B0', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
           📅 Mês em andamento — dados parciais de {diaAtual}/{diasNoMes} dias. Os números crescem ao longo do mês; use o filtro de período para comparar com meses fechados.
@@ -75,15 +78,15 @@ export default function Campanhas() {
       {/* KPIs */}
       <SectionLabel>Performance geral — atribuicao real (excl. marketplace)</SectionLabel>
       <KpiGrid cols={4}>
-        <KpiCard label="Investimento Meta" value={fmtBRL(summary.totalSpend)} highlight />
-        <KpiCard label="Receita atribuida" value={fmtBRL(summary.totalRevenue)}
-          sub={`${fmtNum(summary.totalVendas)} vendas`} />
+        <KpiCard label="Investimento Meta" value={kpiValor(houveFalha, false, fmtBRL(summary.totalSpend))} highlight />
+        <KpiCard label="Receita atribuida" value={kpiValor(houveFalha, false, fmtBRL(summary.totalRevenue))}
+          sub={houveFalha?undefined:`${fmtNum(summary.totalVendas)} vendas`} />
         <KpiCard label="% Invest / Faturamento"
-          value={summary.pctInvestFat > 0 ? fmtPct(summary.pctInvestFat, 1) : '–'}
+          value={kpiValor(houveFalha, false, summary.pctInvestFat > 0 ? fmtPct(summary.pctInvestFat, 1) : '–')}
           sub={summary.pctInvestFat >= 5 && summary.pctInvestFat <= 6 ? 'Zona ideal' : summary.pctInvestFat < 4 ? 'Investindo pouco' : summary.pctInvestFat <= 7 ? 'Atencao' : 'Acima do limite'}
           trend={summary.pctInvestFat >= 5 && summary.pctInvestFat <= 6 ? 'up' : summary.pctInvestFat < 4 || summary.pctInvestFat > 7 ? 'down' : 'neutral'} />
-        <KpiCard label="ROAS real" value={summary.overallRoas > 0 ? `${summary.overallRoas.toFixed(1)}x` : '–'}
-          sub={`CPA: ${summary.overallCpa > 0 ? fmtBRL(summary.overallCpa) : '–'}`}
+        <KpiCard label="ROAS real" value={kpiValor(houveFalha, false, summary.overallRoas > 0 ? `${summary.overallRoas.toFixed(1)}x` : '–')}
+          sub={houveFalha?undefined:`CPA: ${summary.overallCpa > 0 ? fmtBRL(summary.overallCpa) : '–'}`}
           trend={summary.overallRoas >= thresholds.roas_green ? 'up' : summary.overallRoas >= thresholds.roas_yellow ? 'neutral' : 'down'} />
       </KpiGrid>
 

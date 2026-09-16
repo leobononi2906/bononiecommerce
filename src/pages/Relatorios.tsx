@@ -5,7 +5,7 @@ import { useVendedoresDim, useRelatorioItens } from '../hooks/use-relatorios'
 import type { Canal, VendedorDim } from '../hooks/use-relatorios'
 import { useDevolucaoItens } from '../hooks/useData'
 import { PageHeader, KpiGrid } from '../components/layout'
-import { KpiCard, Spinner, Card, CardTitle } from '../components/ui'
+import { KpiCard, Spinner, Card, CardTitle, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { fmtBRL, fmtNum } from '../lib/fmt'
 
 type GroupBy = 'produto' | 'vendedor' | 'mes'
@@ -64,10 +64,10 @@ export default function Relatorios() {
   const seisMesesAtras = iso(new Date(now.getFullYear(), now.getMonth() - 5, 1))
   const dimStart = start < seisMesesAtras ? start : seisMesesAtras
   const dimEnd = end > iso(now) ? end : iso(now)
-  const { data: dim, loading: ldim } = useVendedoresDim(dimStart, dimEnd, true)
-  const { data: itens, loading: litens } = useRelatorioItens(start, end, true)
+  const { data: dim, loading: ldim, error: edim, reload: rdim } = useVendedoresDim(dimStart, dimEnd, true)
+  const { data: itens, loading: litens, error: eitens, reload: ritens } = useRelatorioItens(start, end, true)
   // Devolução externa (interna=false) no mesmo intervalo — atribuída pelo mês da devolução, não da venda.
-  const { data: devItens } = useDevolucaoItens(start, end, true)
+  const { data: devItens, error: edev, reload: rdev } = useDevolucaoItens(start, end, true)
 
   const idDim = useMemo(() => {
     const m = new Map<number, VendedorDim>()
@@ -291,17 +291,23 @@ export default function Relatorios() {
       </Card>
 
       {/* ── KPIs ── */}
+      <AvisoFalhaDeCarga fontes={[
+        { nome: 'Itens faturados', error: eitens, reload: ritens },
+        { nome: 'Devolução',       error: edev,   reload: rdev },
+        { nome: 'Vendedores',      error: edim,   reload: rdim },
+      ]} />
+
       <KpiGrid cols={3}>
-        <KpiCard label="Faturamento (bruto)" value={litens ? '…' : fmtBRL(totais.fat)} />
-        <KpiCard label="Devolução externa"   value={litens ? '…' : ('− '+fmtBRL(totais.devolucao))}
-          sub={litens || totais.fat<=0 ? undefined : `${(totais.devolucao/totais.fat*100).toFixed(1)}% do bruto`}
+        <KpiCard label="Faturamento (bruto)" value={kpiValor(eitens, litens, fmtBRL(totais.fat))} />
+        <KpiCard label="Devolução externa"   value={kpiValor(edev, litens, '− '+fmtBRL(totais.devolucao))}
+          sub={litens || edev || totais.fat<=0 ? undefined : `${(totais.devolucao/totais.fat*100).toFixed(1)}% do bruto`}
           trend={totais.devolucao>0?'down':'neutral'} />
-        <KpiCard label="Faturamento líquido" value={litens ? '…' : fmtBRL(totais.liquido)} highlight />
+        <KpiCard label="Faturamento líquido" value={kpiValor(eitens||edev, litens, fmtBRL(totais.liquido))} highlight />
       </KpiGrid>
       <KpiGrid cols={3}>
-        <KpiCard label="Quantidade" value={litens ? '…' : fmtNum(totais.qtd)} />
-        <KpiCard label="Pedidos" value={litens ? '…' : fmtNum(totais.pedidos)} />
-        <KpiCard label="Ticket médio" value={litens ? '…' : fmtBRL(totais.ticket)} />
+        <KpiCard label="Quantidade" value={kpiValor(eitens, litens, fmtNum(totais.qtd))} />
+        <KpiCard label="Pedidos" value={kpiValor(eitens, litens, fmtNum(totais.pedidos))} />
+        <KpiCard label="Ticket médio" value={kpiValor(eitens, litens, fmtBRL(totais.ticket))} />
       </KpiGrid>
 
       {/* ── AGRUPAMENTO + EXPORT ── */}

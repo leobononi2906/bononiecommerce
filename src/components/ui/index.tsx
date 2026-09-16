@@ -134,6 +134,60 @@ export function AlertBanner({ type, children }: { type: 'error' | 'warning'; chi
   )
 }
 
+export interface FonteDeDado {
+  /** Como o usuário chama esse número na tela ("Faturamento", "Tempo de resposta"). */
+  nome: string
+  error: string | null
+  reload?: () => void
+}
+
+/**
+ * Aviso de carga que falhou. Existe porque o silêncio aqui é pior que o erro: sem `data`,
+ * toda agregação da página dá 0, e 0 num KPI se lê como fato — foi assim que o "Tempo de
+ * resposta (mediana)" apareceu como `0min` quando o valor real era 11h28min.
+ * Quem usa isto tem de mostrar `–` (não `0`) nos KPIs das fontes que falharam.
+ */
+export function AvisoFalhaDeCarga({ fontes }: { fontes: FonteDeDado[] }) {
+  const falhas = fontes.filter(f => f.error)
+  if (!falhas.length) return null
+  const podeRecarregar = falhas.some(f => f.reload)
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <AlertBanner type="error">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1 }}>
+          <span>
+            <strong>Não carregou: {falhas.map(f => f.nome).join(', ')}.</strong>{' '}
+            Esses números aparecem como “–” — <em>não são zero</em>.
+          </span>
+          <span title={falhas.map(f => `${f.nome}: ${f.error}`).join('\n')}
+                style={{ color: 'var(--text-hint)', fontSize: 11, cursor: 'help' }}>
+            detalhe técnico
+          </span>
+          {podeRecarregar && (
+            <button
+              onClick={() => falhas.forEach(f => f.reload?.())}
+              style={{
+                marginLeft: 'auto', padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
+                color: 'var(--red)', background: 'transparent',
+                border: '1px solid currentColor', borderRadius: 'var(--radius)', cursor: 'pointer',
+              }}>
+              Tentar de novo
+            </button>
+          )}
+        </div>
+      </AlertBanner>
+    </div>
+  )
+}
+
+/** Valor de KPI: `–` quando a fonte falhou (nunca 0), `…` enquanto carrega.
+ *  Aceita boolean para o caso de várias fontes já combinadas com `||`. */
+export function kpiValor(fonteComErro: string | boolean | null, carregando: boolean, texto: string): string {
+  if (fonteComErro) return '–'
+  if (carregando) return '…'
+  return texto
+}
+
 interface TableProps {
   headers: string[]
   rows: React.ReactNode[][]
