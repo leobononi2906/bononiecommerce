@@ -100,7 +100,9 @@ const APELIDO: Record<string, string> = {
 }
 export function rotuloCanal(nome: string): string {
   const n = normMkt(nome)
-  return APELIDO[n] ?? n.replace(/\b\w+/g, p => p.length > 2 ? p[0] + p.slice(1).toLowerCase() : p)
+  // Palavra de até 3 letras fica em caixa alta: são siglas (ML, MLB, PR, SC) e capitalizá-las
+  // produz "ML Mlb PR". Só o que é palavra mesmo vira Capitalizada.
+  return APELIDO[n] ?? n.replace(/\b\w+/g, p => p.length > 3 ? p[0] + p.slice(1).toLowerCase() : p)
 }
 
 /**
