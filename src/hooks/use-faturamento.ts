@@ -1,20 +1,21 @@
 import { supabase } from '../lib/supabase'
-import { useQuery, getPeriodRange, getPreviousPeriodRange } from '../lib/query'
+import { useQuery, getPeriodRange, getPreviousPeriodRange, buscarTudo } from '../lib/query'
 import type { Periodo } from '../types'
 
 // custo_doc apelidado do custo pelo PREÇO DE COMPRA (custo_doc_pc) — consumidores seguem usando r.custo_doc
-const FAT_COLS = 'id_vendedor,nome_vendedor,faturamento_doc,custo_doc:custo_doc_pc,taxa_marketplace,faturamento_liquido,data_faturamento'
+// `id` entra no select porque é a chave de ordenação da paginação: sem ordem estável o Postgres
+// pode repetir uma linha numa página e pular outra na seguinte.
+const FAT_COLS = 'id,id_vendedor,nome_vendedor,faturamento_doc,custo_doc:custo_doc_pc,taxa_marketplace,faturamento_liquido,data_faturamento'
 
 async function fetchFaturamento(start: string, end: string) {
-  const { data, error } = await supabase
+  return buscarTudo<any>((de, ate) => supabase
     .from('vw_comercial_docs_margem')
     .select(FAT_COLS)
     .eq('tipo_saida', 'ONLINE')
     .gte('data_faturamento', start)
     .lte('data_faturamento', end)
-    .range(0, 9999)
-  if (error) throw error
-  return data || []
+    .order('id', { ascending: true })
+    .range(de, ate))
 }
 
 export function useFaturamentoPeriodo(periodo: Periodo) {
@@ -31,13 +32,12 @@ export function useFaturamentoPeriodoAnterior(periodo: Periodo) {
 export function useFaturamento6Meses() {
   return useQuery<any[]>(async () => {
     const d = new Date(); d.setMonth(d.getMonth()-5); d.setDate(1)
-    const { data, error } = await supabase
+    return buscarTudo<any>((de, ate) => supabase
       .from('vw_comercial_docs_faturados')
-      .select('data_faturamento,nome_vendedor,faturamento_doc')
+      .select('id,data_faturamento,nome_vendedor,faturamento_doc')
       .eq('tipo_saida', 'ONLINE')
       .gte('data_faturamento', d.toISOString().slice(0,10))
-      .range(0, 9999)
-    if (error) throw error
-    return data || []
+      .order('id', { ascending: true })
+      .range(de, ate))
   }, [])
 }

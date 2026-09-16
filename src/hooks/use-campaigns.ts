@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { useQuery, getPeriodRange, getPreviousPeriodRange, getCanal } from '../lib/query'
+import { useQuery, getPeriodRange, getPreviousPeriodRange, getCanal, buscarTudo } from '../lib/query'
 import { getThresholds } from '../lib/thresholds'
 import type { EcomCampanha, EcomMetaAds, EcomCampanhaSubgrupo, Periodo } from '../types'
 import type { CampaignAnalysis, CampaignSignal, CampaignVerdict, SubgroupAnalysis } from '../types/campaigns'
@@ -10,12 +10,17 @@ function normCamp(name: string): string {
   return name.replace(/\s*\[PAUSADA\]\s*/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// `ecom_meta_ads` e `vw_ecom_campanhas` não têm coluna `id`: o grão é dia × campanha × conjunto,
+// e é por essas três que a paginação ordena. Ordem estável é obrigatória — ver `buscarTudo`.
+const ordemMetaAds = (q: any) => q.order('data', { ascending: true }).order('campanha').order('conjunto')
+
 export function useCampanhas(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomCampanha[]>(async () => {
-    const { data, error } = await supabase.from('vw_ecom_campanhas').select('*').gte('data',start).lte('data',end).range(0,9999)
-    if (error) throw error
-    return (data||[]).map(r => ({
+    const data = await buscarTudo<any>((de, ate) => ordemMetaAds(
+      supabase.from('vw_ecom_campanhas').select('*').gte('data',start).lte('data',end)
+    ).range(de, ate))
+    return data.map(r => ({
       ...r, investimento: Number(r.investimento), receita_gerada: Number(r.receita_gerada), roas: Number(r.roas),
       taxa_conversao_perc: r.taxa_conversao_perc!=null ? Number(r.taxa_conversao_perc) : null,
       custo_por_lead: r.custo_por_lead!=null ? Number(r.custo_por_lead) : null,
@@ -26,31 +31,29 @@ export function useCampanhas(periodo: Periodo) {
 export function useMetaAds(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomMetaAds[]>(async () => {
-    const { data, error } = await supabase.from('ecom_meta_ads').select('*').gte('data',start).lte('data',end).range(0,9999)
-    if (error) throw error
-    return (data||[]).map(r => ({ ...r, investimento: Number(r.investimento), leads: Number(r.leads) }))
+    const data = await buscarTudo<any>((de, ate) => ordemMetaAds(
+      supabase.from('ecom_meta_ads').select('*').gte('data',start).lte('data',end)
+    ).range(de, ate))
+    return data.map(r => ({ ...r, investimento: Number(r.investimento), leads: Number(r.leads) }))
   }, [start, end])
 }
 
 export function useCampanhaSubgrupos() {
-  return useQuery<EcomCampanhaSubgrupo[]>(async () => {
-    const { data, error } = await supabase.from('ecom_campanha_subgrupo').select('*').range(0,9999)
-    if (error) throw error
-    return data || []
-  }, [])
+  return useQuery<EcomCampanhaSubgrupo[]>(async () => buscarTudo<any>((de, ate) => supabase
+    .from('ecom_campanha_subgrupo').select('*')
+    .order('id', { ascending: true }).range(de, ate)), [])
 }
 
 export function useMetaAdsAtivos() {
   return useQuery<string[]>(async () => {
     const since = new Date()
     since.setDate(since.getDate() - 30)
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => ordemMetaAds(supabase
       .from('ecom_meta_ads')
-      .select('campanha')
+      .select('data,campanha,conjunto')
       .gte('data', since.toISOString().slice(0,10))
-      .range(0, 9999)
-    if (error) throw error
-    const set = new Set<string>((data||[]).map((r:any) => r.campanha as string).filter(Boolean))
+    ).range(de, ate))
+    const set = new Set<string>(data.map((r:any) => r.campanha as string).filter(Boolean))
     return [...set].sort()
   }, [])
 }
@@ -59,15 +62,13 @@ export function useMetaAdsAtivos() {
 export function useMetaAdsDaily(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<{ data: string; campanha: string; investimento: number; leads: number }[]>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => ordemMetaAds(supabase
       .from('ecom_meta_ads')
-      .select('data,campanha,investimento,leads')
+      .select('data,campanha,conjunto,investimento,leads')
       .gte('data', start)
       .lte('data', end)
-      .order('data')
-      .range(0, 9999)
-    if (error) throw error
-    return (data || []).map(r => ({ data: r.data, campanha: r.campanha, investimento: Number(r.investimento), leads: Number(r.leads) }))
+    ).range(de, ate))
+    return data.map(r => ({ data: r.data, campanha: r.campanha, investimento: Number(r.investimento), leads: Number(r.leads) }))
   }, [start, end])
 }
 
@@ -75,13 +76,12 @@ export function useMetaAdsDaily(periodo: Periodo) {
 export function useMetaAdsMensal() {
   return useQuery<{ data: string; investimento: number; leads: number }[]>(async () => {
     const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => ordemMetaAds(supabase
       .from('ecom_meta_ads')
-      .select('data,investimento,leads')
+      .select('data,campanha,conjunto,investimento,leads')
       .gte('data', d.toISOString().slice(0, 10))
-      .range(0, 9999)
-    if (error) throw error
-    return (data || []).map((r: any) => ({ data: r.data, investimento: Number(r.investimento) || 0, leads: Number(r.leads) || 0 }))
+    ).range(de, ate))
+    return data.map((r: any) => ({ data: r.data, investimento: Number(r.investimento) || 0, leads: Number(r.leads) || 0 }))
   }, [])
 }
 
@@ -99,14 +99,14 @@ interface ConversaoRow {
 function useConversaoReal(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<ConversaoRow[]>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('vw_ecom_campanha_conversao')
       .select('*')
       .gte('mes_ref', start)
       .lte('mes_ref', end)
-      .range(0, 9999)
-    if (error) throw error
-    return (data || []).map((r: any) => ({
+      .order('mes_ref', { ascending: true }).order('campanha')
+      .range(de, ate))
+    return data.map((r: any) => ({
       ...r,
       leads: Number(r.leads),
       interessados: Number(r.interessados),
@@ -122,15 +122,15 @@ function useConversaoReal(periodo: Periodo) {
 function useFaturamentoExclMkt(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<number>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('vw_comercial_docs_faturados')
-      .select('nome_vendedor,faturamento_doc')
+      .select('id,nome_vendedor,faturamento_doc')
       .eq('tipo_saida', 'ONLINE')
       .gte('data_faturamento', start)
       .lte('data_faturamento', end)
-      .range(0, 9999)
-    if (error) throw error
-    return (data || [])
+      .order('id', { ascending: true })
+      .range(de, ate))
+    return data
       .filter((r: any) => getCanal(r.nome_vendedor || '') !== 'marketplace')
       .reduce((s: number, r: any) => s + Number(r.faturamento_doc), 0)
   }, [start, end])
@@ -279,15 +279,17 @@ export function useSubgroupAnalysis(periodo: Periodo) {
   const { data: campSub } = useCampanhaSubgrupos()
   const { data: subgrupos } = useQuery<any[]>(async () => {
     const { start, end } = getPeriodRange(periodo)
-    const { data, error } = await supabase.from('vw_ecom_subgrupos').select('*').gte('data_ref', start).lte('data_ref', end).range(0, 9999)
-    if (error) throw error
-    return (data || []).map(r => ({ ...r, faturamento: Number(r.faturamento) }))
+    const data = await buscarTudo<any>((de, ate) => supabase.from('vw_ecom_subgrupos')
+      .select('*').gte('data_ref', start).lte('data_ref', end)
+      .order('id', { ascending: true }).range(de, ate))
+    return data.map(r => ({ ...r, faturamento: Number(r.faturamento) }))
   }, [periodo])
   const { data: subgruposAnt } = useQuery<any[]>(async () => {
     const { start, end } = getPreviousPeriodRange(periodo)
-    const { data, error } = await supabase.from('vw_ecom_subgrupos').select('*').gte('data_ref', start).lte('data_ref', end).range(0, 9999)
-    if (error) throw error
-    return (data || []).map(r => ({ ...r, faturamento: Number(r.faturamento) }))
+    const data = await buscarTudo<any>((de, ate) => supabase.from('vw_ecom_subgrupos')
+      .select('*').gte('data_ref', start).lte('data_ref', end)
+      .order('id', { ascending: true }).range(de, ate))
+    return data.map(r => ({ ...r, faturamento: Number(r.faturamento) }))
   }, [periodo])
 
   return useMemo((): SubgroupAnalysis[] => {
@@ -351,14 +353,14 @@ export interface CampaignDetail {
 export function useCampaignDetails(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<CampaignDetail[]>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('vw_ecom_campanha_detalhe')
       .select('*')
       .gte('mes_ref', start)
       .lte('mes_ref', end)
-      .range(0, 9999)
-    if (error) throw error
-    return (data || []).map((r: any) => ({
+      .order('mes_ref', { ascending: true }).order('campanha').order('conjunto').order('anuncio')
+      .range(de, ate))
+    return data.map((r: any) => ({
       campanha: r.campanha,
       conjunto: r.conjunto || '(sem conjunto)',
       anuncio: r.anuncio || '(sem anúncio)',

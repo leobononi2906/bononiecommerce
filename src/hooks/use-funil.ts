@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { useQuery, getPeriodRange } from '../lib/query'
+import { useQuery, getPeriodRange, buscarTudo } from '../lib/query'
 import type { Periodo } from '../types'
 
 export interface FunilLead {
@@ -23,25 +23,18 @@ export interface ConfigEtiqueta {
   ativo: boolean
 }
 
-/** Busca paginada — o período de 6 meses passa de 10k linhas. */
+/** Busca paginada — o período de 6 meses passa de 10k linhas (27.006 em 16/09/2026).
+ *  Esta tela já paginava à mão antes das outras; agora usa o mesmo `buscarTudo`.
+ *  Ordena por `dt_entrada,telefone` porque `ecom_atd_funil` não tem `id`, e só a data não
+ *  serve de chave de página: vários contatos entram no mesmo instante. */
 async function fetchTodos(start: string, end: string): Promise<FunilLead[]> {
-  const PAGE = 5000
-  const MAX_PAGES = 12
-  const out: FunilLead[] = []
-  for (let p = 0; p < MAX_PAGES; p++) {
-    const { data, error } = await supabase
-      .from('ecom_atd_funil')
-      .select('telefone,dt_entrada,id_membro_umbler,tags,comprou_erp,valor_venda_erp')
-      .gte('dt_entrada', start + 'T00:00:00')
-      .lte('dt_entrada', end + 'T23:59:59')
-      .order('dt_entrada', { ascending: true })
-      .range(p * PAGE, (p + 1) * PAGE - 1)
-    if (error) throw error
-    const lote = (data || []) as FunilLead[]
-    out.push(...lote)
-    if (lote.length < PAGE) break
-  }
-  return out
+  return buscarTudo<FunilLead>((de, ate) => supabase
+    .from('ecom_atd_funil')
+    .select('telefone,dt_entrada,id_membro_umbler,tags,comprou_erp,valor_venda_erp')
+    .gte('dt_entrada', start + 'T00:00:00')
+    .lte('dt_entrada', end + 'T23:59:59')
+    .order('dt_entrada', { ascending: true }).order('telefone')
+    .range(de, ate))
 }
 
 export function useFunilAtendimento(periodo: Periodo) {
@@ -54,14 +47,13 @@ export function useFunilAtendimento(periodo: Periodo) {
 
 export function useConfigEtiquetas(refreshKey = 0) {
   return useQuery<ConfigEtiqueta[]>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('ecom_atd_config_etiqueta')
       .select('*')
       .eq('ativo', true)
-      .order('ordem', { ascending: true })
-      .range(0, 999)
-    if (error) throw error
-    return (data || []).map((r: any) => ({
+      .order('ordem', { ascending: true }).order('id')
+      .range(de, ate))
+    return data.map((r: any) => ({
       ...r,
       padroes: Array.isArray(r.padroes) ? r.padroes : [],
     })) as ConfigEtiqueta[]

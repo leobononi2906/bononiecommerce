@@ -63,6 +63,60 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
   return { data, loading, error, reload }
 }
 
+/** Linhas por requisição. Medido em 16/09/2026 contra os 21.727 leads de 6 meses:
+ *  1.000 → 22 req / 14.450 ms · 2.000 → 11 req / 8.966 ms · 5.000 → 5 req / 5.462 ms.
+ *  Paginar re-executa a consulta inteira a cada página (o PostgREST vira LIMIT/OFFSET),
+ *  então página pequena é cara. 5.000 tem folga de 2x sobre o `db_max_rows` de 10.000
+ *  configurado nos dois projetos — e `buscarTudo` funciona mesmo se esse teto mudar. */
+const PAGINA = 5000
+
+/** Teto de sanidade: 50 requisições (250 mil linhas). Se bater aqui, o filtro está errado —
+ *  melhor estourar alto e visível do que devolver meio resultado calado. */
+const MAX_REQUISICOES = 50
+
+/**
+ * Busca TODAS as linhas de uma consulta, em páginas.
+ *
+ * Substitui o `.range(0, 9999)` que estava espalhado pelos hooks. Aquilo **não era paginação,
+ * era um teto**: passando de 10.000 linhas o PostgREST corta e responde 200, sem erro e sem
+ * aviso, com o número menor que a realidade. Em 16/09/2026 isso já acontecia de verdade —
+ * `ecom_leads` em "últimos 6 meses" tem 21.727 linhas e o app recebia 10.000, perdendo 11.727.
+ *
+ * `paginar` recebe o intervalo e devolve a consulta já montada. **Ela precisa terminar com um
+ * `.order()` por chave estável** (`id` onde existir): sem ordenação o Postgres não garante a
+ * mesma ordem entre chamadas, e aí a paginação repete uma linha e pula outra — que é um jeito
+ * pior de errar do que truncar.
+ *
+ * O avanço é pelo que a resposta REALMENTE trouxe, não por `página × tamanho`. Assim, se o
+ * servidor tiver um teto por requisição menor que `PAGINA` (o projeto de teste já esteve com
+ * 1.000), a busca continua correta em vez de parar achando que acabou.
+ */
+export async function buscarTudo<T>(
+  paginar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: any }>,
+): Promise<T[]> {
+  const tudo: T[] = []
+  let de = 0
+  let maiorLote = 0
+
+  for (let i = 0; i < MAX_REQUISICOES; i++) {
+    const { data, error } = await paginar(de, de + PAGINA - 1)
+    if (error) throw error
+    const lote = data ?? []
+    tudo.push(...lote)
+
+    if (!lote.length) return tudo
+    // Veio menos do que o servidor já provou que entrega → acabaram os dados.
+    // (Na primeira volta maiorLote ainda é 0, então não corta cedo por engano.)
+    if (lote.length < maiorLote) return tudo
+    maiorLote = Math.max(maiorLote, lote.length)
+    de += lote.length
+  }
+  throw new Error(
+    `buscarTudo: passou de ${MAX_REQUISICOES} requisições (${tudo.length} linhas). ` +
+    `O filtro da consulta provavelmente está amplo demais.`,
+  )
+}
+
 export function getPeriodRange(periodo: Periodo): { start: string; end: string } {
   const now = new Date(), y = now.getFullYear(), m = now.getMonth()
   if (periodo === 'mes_atual')    return { start: new Date(y,m,1).toISOString().slice(0,10),   end: new Date(y,m+1,0).toISOString().slice(0,10) }

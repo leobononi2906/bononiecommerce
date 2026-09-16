@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { useQuery, getCanal } from '../lib/query'
+import { useQuery, getCanal, buscarTudo } from '../lib/query'
 
 export type Canal = 'vendedor' | 'site' | 'marketplace'
 
@@ -25,16 +25,16 @@ export interface RelItemRaw {
 export function useVendedoresDim(start: string, end: string, enabled: boolean) {
   return useQuery<VendedorDim[]>(async () => {
     if (!enabled || !start || !end) return []
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('vw_comercial_docs_faturados')
-      .select('id_vendedor,nome_vendedor')
+      .select('id,id_vendedor,nome_vendedor')
       .eq('tipo_saida', 'ONLINE')
       .gte('data_faturamento', start)
       .lte('data_faturamento', end)
-      .range(0, 9999)
-    if (error) throw error
+      .order('id', { ascending: true })
+      .range(de, ate))
     const map = new Map<number, VendedorDim>()
-    ;(data || []).forEach((r: any) => {
+    data.forEach((r: any) => {
       if (r.id_vendedor == null || map.has(r.id_vendedor)) return
       const nome = (r.nome_vendedor || '').trim()
       map.set(r.id_vendedor, { id_vendedor: r.id_vendedor, nome, canal: getCanal(nome) })
@@ -43,40 +43,30 @@ export function useVendedoresDim(start: string, end: string, enabled: boolean) {
   }, [start, end, enabled])
 }
 
-/** Itens faturados ONLINE no intervalo [start, end], paginado (sem limite de 1000). */
+/** Itens faturados ONLINE no intervalo [start, end]. Esta tela já paginava à mão desde antes;
+ *  agora usa o mesmo `buscarTudo` do resto do app (páginas de 5.000 em vez de 1.000). */
 export function useRelatorioItens(start: string, end: string, enabled: boolean) {
   return useQuery<RelItemRaw[]>(async () => {
     if (!enabled || !start || !end) return []
-    const PAGE = 1000
-    let from = 0
-    const all: RelItemRaw[] = []
-    // paginação por range até vir uma página incompleta (protege contra o cap de 1000)
-    // guarda de segurança em 120k linhas
-    for (let i = 0; i < 120; i++) {
-      const { data, error } = await supabase
-        .from('vw_comercial_itens_faturados')
-        .select('id_vendedor,referencia,produto,grupo,subgrupo,data_faturamento,id_doc,qtd,total_item')
-        .eq('tipo_saida', 'ONLINE')
-        .gte('data_faturamento', start)
-        .lte('data_faturamento', end)
-        .order('id')
-        .range(from, from + PAGE - 1)
-      if (error) throw error
-      const rows = data || []
-      rows.forEach((r: any) => all.push({
-        id_vendedor: r.id_vendedor,
-        referencia: r.referencia || '—',
-        produto: r.produto || '—',
-        grupo: r.grupo || '—',
-        subgrupo: r.subgrupo || '—',
-        mes: (r.data_faturamento || '').slice(0, 7),
-        id_doc: r.id_doc,
-        qtd: Number(r.qtd) || 0,
-        fat: Number(r.total_item) || 0,
-      }))
-      if (rows.length < PAGE) break
-      from += PAGE
-    }
+    const rows = await buscarTudo<any>((de, ate) => supabase
+      .from('vw_comercial_itens_faturados')
+      .select('id,id_vendedor,referencia,produto,grupo,subgrupo,data_faturamento,id_doc,qtd,total_item')
+      .eq('tipo_saida', 'ONLINE')
+      .gte('data_faturamento', start)
+      .lte('data_faturamento', end)
+      .order('id', { ascending: true })
+      .range(de, ate))
+    const all: RelItemRaw[] = rows.map((r: any) => ({
+      id_vendedor: r.id_vendedor,
+      referencia: r.referencia || '—',
+      produto: r.produto || '—',
+      grupo: r.grupo || '—',
+      subgrupo: r.subgrupo || '—',
+      mes: (r.data_faturamento || '').slice(0, 7),
+      id_doc: r.id_doc,
+      qtd: Number(r.qtd) || 0,
+      fat: Number(r.total_item) || 0,
+    }))
     return all
   }, [start, end, enabled])
 }

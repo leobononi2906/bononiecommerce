@@ -1,12 +1,12 @@
 import { supabase } from '../lib/supabase'
-import { useQuery, getPeriodRange } from '../lib/query'
+import { useQuery, getPeriodRange, buscarTudo } from '../lib/query'
 import type { EcomVendedor, EcomEsperaVendedor, EcomUmblerVendedor, Periodo } from '../types'
 
 export function useVendedores() {
   return useQuery<EcomVendedor[]>(async () => {
-    const { data, error } = await supabase.from('vw_ecom_vendedores').select('*').range(0,9999)
-    if (error) throw error
-    return (data||[]).map(r => ({
+    const data = await buscarTudo<any>((de, ate) => supabase.from('vw_ecom_vendedores')
+      .select('*').order('id_vendedor_erp', { ascending: true }).range(de, ate))
+    return data.map(r => ({
       ...r,
       faturamento_erp: Number(r.faturamento_erp),
       ticket_medio: Number(r.ticket_medio),
@@ -21,8 +21,10 @@ export function useVendedores() {
 export function useEsperaVendedor(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<EcomEsperaVendedor[]>(async () => {
-    const [{ data: mapa }, { data: maxDate }] = await Promise.all([
-      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp').range(0,9999),
+    const [mapa, { data: maxDate }] = await Promise.all([
+      buscarTudo<any>((de, ate) => supabase.from('ecom_umbler_vendedor')
+        .select('id_membro_umbler,nome_vendedor_erp')
+        .order('id_membro_umbler', { ascending: true }).range(de, ate)),
       supabase.from('vw_ecom_espera_vendedor').select('data_ref').order('data_ref', {ascending:false}).limit(1),
     ])
     let s = start, e = end
@@ -32,9 +34,9 @@ export function useEsperaVendedor(periodo: Periodo) {
         const d = new Date(lastDate); e = lastDate; d.setDate(d.getDate() - 60); s = d.toISOString().slice(0,10)
       }
     }
-    const { data: espera, error } = await supabase
-      .from('vw_ecom_espera_vendedor').select('*').gte('data_ref',s).lte('data_ref',e).range(0,9999)
-    if (error) throw error
+    const espera = await buscarTudo<any>((de, ate) => supabase
+      .from('vw_ecom_espera_vendedor').select('*').gte('data_ref',s).lte('data_ref',e)
+      .order('data_ref', { ascending: true }).order('id_vendedor').range(de, ate))
     const lookup: Record<string,string> = {}
     ;(mapa||[]).forEach((m:any) => { lookup[m.id_membro_umbler] = m.nome_vendedor_erp })
     return (espera||[])
@@ -65,15 +67,16 @@ function mediana(arr: number[]): number {
 export function useTempoResposta(periodo: Periodo) {
   const { start, end } = getPeriodRange(periodo)
   return useQuery<{ vendedores: TempoRespVend[]; geralMedia: number; geralMediana: number; geralTotal: number }>(async () => {
-    const [{ data: mapa }, { data: rows, error }] = await Promise.all([
-      supabase.from('ecom_umbler_vendedor').select('id_membro_umbler,nome_vendedor_erp,interno').range(0, 9999),
-      supabase.from('vw_ecom_tempo_resposta')
-        .select('id_membro_umbler,data_ref,minutos_resposta')
+    const [mapa, rows] = await Promise.all([
+      buscarTudo<any>((de, ate) => supabase.from('ecom_umbler_vendedor')
+        .select('id_membro_umbler,nome_vendedor_erp,interno')
+        .order('id_membro_umbler', { ascending: true }).range(de, ate)),
+      buscarTudo<any>((de, ate) => supabase.from('vw_ecom_tempo_resposta')
+        .select('id_conversa,id_membro_umbler,data_ref,minutos_resposta')
         .gte('data_ref', start).lte('data_ref', end)
         .not('id_membro_umbler', 'is', null)
-        .range(0, 9999),
+        .order('id_conversa', { ascending: true }).range(de, ate)),
     ])
-    if (error) throw error
     const lookup = new Map<string, { nome: string | null; interno: boolean }>()
     ;(mapa || []).forEach((m: any) => lookup.set(m.id_membro_umbler, { nome: m.nome_vendedor_erp, interno: !!m.interno }))
 
@@ -111,20 +114,19 @@ export function useTempoResposta(periodo: Periodo) {
 
 export function useUmblerVendedores() {
   return useQuery<EcomUmblerVendedor[]>(async () => {
-    const { data, error } = await supabase.from('ecom_umbler_vendedor').select('*').range(0,9999)
-    if (error) throw error
-    return data || []
+    return buscarTudo<any>((de, ate) => supabase.from('ecom_umbler_vendedor')
+      .select('*').order('id_membro_umbler', { ascending: true }).range(de, ate))
   }, [])
 }
 
 export function useInternos() {
   return useQuery<Set<string>>(async () => {
-    const { data, error } = await supabase
+    const data = await buscarTudo<any>((de, ate) => supabase
       .from('ecom_umbler_vendedor')
       .select('id_membro_umbler')
       .eq('interno', true)
-      .range(0, 999)
-    if (error) throw error
-    return new Set((data||[]).map((r:any) => r.id_membro_umbler as string))
+      .order('id_membro_umbler', { ascending: true })
+      .range(de, ate))
+    return new Set(data.map((r:any) => r.id_membro_umbler as string))
   }, [])
 }
