@@ -9,6 +9,36 @@ export interface VendedorDim {
   canal: Canal
 }
 
+export interface VendaDoc {
+  tipo_doc: string
+  id_doc: number
+  id_empresa: number
+  id_vendedor: number
+  num_nf: string | null
+  data_faturamento: string
+  fat: number
+}
+
+/** Histórico de vendas a nível de DOCUMENTO (não de item) — uma linha por nota, não por produto
+ *  dentro dela. Para a tela "Histórico de vendas" (filtro canal/vendedor sem quebrar por produto). */
+export function useDocsFaturados(start: string, end: string, enabled: boolean) {
+  return useQuery<VendaDoc[]>(async () => {
+    if (!enabled || !start || !end) return []
+    const rows = await buscarTudo<any>((de, ate) => supabase
+      .from('vw_comercial_docs_margem')
+      .select('id,tipo_doc,id_doc,id_empresa,id_vendedor,num_nf,data_faturamento,faturamento_doc')
+      .eq('tipo_saida', 'ONLINE')
+      .gte('data_faturamento', start)
+      .lte('data_faturamento', end)
+      .order('id', { ascending: true })
+      .range(de, ate))
+    return rows.map((r: any) => ({
+      tipo_doc: r.tipo_doc, id_doc: r.id_doc, id_empresa: r.id_empresa, id_vendedor: r.id_vendedor,
+      num_nf: r.num_nf, data_faturamento: r.data_faturamento, fat: Number(r.faturamento_doc) || 0,
+    }))
+  }, [start, end, enabled])
+}
+
 export interface RelItemRaw {
   id_vendedor: number
   referencia: string

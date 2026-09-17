@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react'
 import { FileSpreadsheet } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { useVendedoresDim, useRelatorioItens } from '../hooks/use-relatorios'
+import { useVendedoresDim, useRelatorioItens, useDocsFaturados } from '../hooks/use-relatorios'
 import type { Canal, VendedorDim } from '../hooks/use-relatorios'
 import { useDevolucaoItens } from '../hooks/useData'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { KpiCard, Spinner, Card, CardTitle, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { fmtBRL, fmtNum } from '../lib/fmt'
 
-type GroupBy = 'produto' | 'vendedor' | 'mes'
+type GroupBy = 'produto' | 'vendedor' | 'mes' | 'venda'
 
 const CANAIS: { v: Canal; label: string }[] = [
   { v: 'vendedor', label: 'Vendedores' },
@@ -59,15 +59,18 @@ export default function Relatorios() {
   const [subgrupoSel, setSubgrupoSel] = useState<Set<string>>(new Set())
   const [produtoBusca, setProdutoBusca] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('produto')
+  const [vendaBusca, setVendaBusca] = useState('')
 
   // Dimensão de vendedores: janela ampla (últimos 6 meses ∪ período) → inclui quem já saiu
   const seisMesesAtras = iso(new Date(now.getFullYear(), now.getMonth() - 5, 1))
   const dimStart = start < seisMesesAtras ? start : seisMesesAtras
   const dimEnd = end > iso(now) ? end : iso(now)
   const { data: dim, loading: ldim, error: edim, reload: rdim } = useVendedoresDim(dimStart, dimEnd, true)
-  const { data: itens, loading: litens, error: eitens, reload: ritens } = useRelatorioItens(start, end, true)
+  const { data: itens, loading: litens, error: eitens, reload: ritens } = useRelatorioItens(start, end, groupBy !== 'venda')
   // Devolução externa (interna=false) no mesmo intervalo — atribuída pelo mês da devolução, não da venda.
-  const { data: devItens, error: edev, reload: rdev } = useDevolucaoItens(start, end, true)
+  const { data: devItens, error: edev, reload: rdev } = useDevolucaoItens(start, end, groupBy !== 'venda')
+  // "Histórico de vendas" (por documento, não por item) — só busca quando essa aba está ativa.
+  const { data: docs, loading: ldocs, error: edocs, reload: rdocs } = useDocsFaturados(start, end, groupBy === 'venda')
 
   const idDim = useMemo(() => {
     const m = new Map<number, VendedorDim>()
@@ -123,6 +126,23 @@ export default function Relatorios() {
       return true
     })
   }, [devItens, idDim, canalSel, vendSel, grupoSel, subgrupoSel, produtoBusca])
+
+  // Histórico de vendas (por documento) — mesmos filtros de canal/vendedor, sem grupo/subgrupo/
+  // produto (não fazem sentido a nível de documento inteiro). Mais recente primeiro.
+  const LIMITE_VENDAS = 500
+  const vendasFiltradas = useMemo(() => {
+    const q = vendaBusca.trim().toLowerCase()
+    return (docs || []).filter(d => {
+      if (!canalSel.has(canalDe(d.id_vendedor))) return false
+      if (vendSel.size > 0 && !vendSel.has(nomeDe(d.id_vendedor))) return false
+      if (q && !(`${nomeDe(d.id_vendedor)} ${d.num_nf || ''}`.toLowerCase().includes(q))) return false
+      return true
+    }).sort((a, b) => b.data_faturamento < a.data_faturamento ? -1 : b.data_faturamento > a.data_faturamento ? 1 : b.id_doc - a.id_doc)
+  }, [docs, idDim, canalSel, vendSel, vendaBusca])
+  const vendasTotais = useMemo(() => ({
+    fat: vendasFiltradas.reduce((s, d) => s + d.fat, 0),
+    qtd: vendasFiltradas.length,
+  }), [vendasFiltradas])
 
   // Devolução agregada pela mesma chave do agrupamento ativo (produto=referência / vendedor=nome / mês)
   const devPorChave = useMemo(() => {
@@ -215,6 +235,21 @@ export default function Relatorios() {
     URL.revokeObjectURL(url)
   }
 
+  function exportarVendasCSV() {
+    const head = ['Data', 'Vendedor', 'Canal', 'Nota fiscal', 'Valor']
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`
+    const linhasCsv = vendasFiltradas.map(d => [d.data_faturamento, nomeDe(d.id_vendedor), CANAL_LABEL[canalDe(d.id_vendedor)], d.num_nf || '—', csvNum(d.fat)])
+    const totalRow = ['', '', '', 'TOTAL', csvNum(vendasTotais.fat)]
+    const body = [head, ...linhasCsv, totalRow].map(r => r.map(esc).join(';')).join('\r\n')
+    const blob = new Blob(['﻿' + body], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `historico_vendas_${start}_a_${end}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const th: React.CSSProperties = { textAlign: 'right', padding: '7px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', whiteSpace: 'nowrap' }
   const thL: React.CSSProperties = { ...th, textAlign: 'left' }
   const td: React.CSSProperties = { padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }
@@ -273,30 +308,47 @@ export default function Relatorios() {
           </div>
         </div>
 
-        {/* linha 2: grupo + subgrupo + produto */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={LABEL}>Grupo {grupoSel.size > 0 && `(${grupoSel.size})`}</label>
-            <MultiBox options={grupoOptions} sel={grupoSel} onToggle={v => { toggleSet(setGrupoSel, v); setSubgrupoSel(new Set()) }} vazio="—" />
+        {/* linha 2: grupo + subgrupo + produto — não se aplica ao histórico por documento */}
+        {groupBy !== 'venda' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={LABEL}>Grupo {grupoSel.size > 0 && `(${grupoSel.size})`}</label>
+              <MultiBox options={grupoOptions} sel={grupoSel} onToggle={v => { toggleSet(setGrupoSel, v); setSubgrupoSel(new Set()) }} vazio="—" />
+            </div>
+            <div>
+              <label style={LABEL}>Subgrupo {subgrupoSel.size > 0 && `(${subgrupoSel.size})`}</label>
+              <MultiBox options={subgrupoOptions} sel={subgrupoSel} onToggle={v => toggleSet(setSubgrupoSel, v)} vazio="—" />
+            </div>
+            <div>
+              <label style={LABEL}>Produto (busca)</label>
+              <input style={{ ...INPUT, width: '100%' }} placeholder="Nome ou referência…" value={produtoBusca} onChange={e => setProdutoBusca(e.target.value)} />
+            </div>
           </div>
+        )}
+        {groupBy === 'venda' && (
           <div>
-            <label style={LABEL}>Subgrupo {subgrupoSel.size > 0 && `(${subgrupoSel.size})`}</label>
-            <MultiBox options={subgrupoOptions} sel={subgrupoSel} onToggle={v => toggleSet(setSubgrupoSel, v)} vazio="—" />
+            <label style={LABEL}>Buscar por vendedor ou nota fiscal</label>
+            <input style={{ ...INPUT, width: '100%', maxWidth: 360 }} placeholder="Nome do vendedor ou nº da NF…" value={vendaBusca} onChange={e => setVendaBusca(e.target.value)} />
           </div>
-          <div>
-            <label style={LABEL}>Produto (busca)</label>
-            <input style={{ ...INPUT, width: '100%' }} placeholder="Nome ou referência…" value={produtoBusca} onChange={e => setProdutoBusca(e.target.value)} />
-          </div>
-        </div>
+        )}
       </Card>
 
       {/* ── KPIs ── */}
-      <AvisoFalhaDeCarga fontes={[
-        { nome: 'Itens faturados', error: eitens, reload: ritens },
-        { nome: 'Devolução',       error: edev,   reload: rdev },
-        { nome: 'Vendedores',      error: edim,   reload: rdim },
-      ]} />
+      <AvisoFalhaDeCarga fontes={groupBy === 'venda'
+        ? [{ nome: 'Histórico de vendas', error: edocs, reload: rdocs }, { nome: 'Vendedores', error: edim, reload: rdim }]
+        : [
+          { nome: 'Itens faturados', error: eitens, reload: ritens },
+          { nome: 'Devolução',       error: edev,   reload: rdev },
+          { nome: 'Vendedores',      error: edim,   reload: rdim },
+        ]} />
 
+      {groupBy === 'venda' ? (
+        <KpiGrid cols={3}>
+          <KpiCard label="Faturamento (bruto)" value={kpiValor(edocs, ldocs, fmtBRL(vendasTotais.fat))} highlight />
+          <KpiCard label="Vendas" value={kpiValor(edocs, ldocs, fmtNum(vendasTotais.qtd))} />
+          <KpiCard label="Ticket médio" value={kpiValor(edocs, ldocs, vendasTotais.qtd>0?fmtBRL(vendasTotais.fat/vendasTotais.qtd):'–')} />
+        </KpiGrid>
+      ) : (<>
       <KpiGrid cols={3}>
         <KpiCard label="Faturamento (bruto)" value={kpiValor(eitens, litens, fmtBRL(totais.fat))} />
         <KpiCard label="Devolução externa"   value={kpiValor(edev, litens, '− '+fmtBRL(totais.devolucao))}
@@ -309,19 +361,27 @@ export default function Relatorios() {
         <KpiCard label="Pedidos" value={kpiValor(eitens, litens, fmtNum(totais.pedidos))} />
         <KpiCard label="Ticket médio" value={kpiValor(eitens, litens, fmtBRL(totais.ticket))} />
       </KpiGrid>
+      </>)}
 
       {/* ── AGRUPAMENTO + EXPORT ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 3, background: 'var(--surface-sunken)', padding: 3, borderRadius: 8 }}>
-          {([['produto', 'Por produto'], ['vendedor', 'Por vendedor'], ['mes', 'Por mês']] as const).map(([v, l]) => (
+          {([['produto', 'Por produto'], ['vendedor', 'Por vendedor'], ['mes', 'Por mês'], ['venda', 'Histórico de vendas']] as const).map(([v, l]) => (
             <button key={v} onClick={() => setGroupBy(v)}
               style={{ padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: groupBy === v ? 'var(--surface)' : 'transparent', color: groupBy === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: groupBy === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'var(--font-sans)' }}>{l}</button>
           ))}
         </div>
-        <button onClick={exportarCSV} disabled={litens || linhas.length === 0}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--green)', color: 'var(--surface-card)', fontWeight: 700, fontSize: 13, cursor: litens || linhas.length === 0 ? 'not-allowed' : 'pointer', opacity: litens || linhas.length === 0 ? 0.5 : 1, fontFamily: 'var(--font-sans)' }}>
-          <FileSpreadsheet size={15} /> Exportar CSV (Excel)
-        </button>
+        {groupBy === 'venda' ? (
+          <button onClick={exportarVendasCSV} disabled={ldocs || vendasFiltradas.length === 0}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--green)', color: 'var(--surface-card)', fontWeight: 700, fontSize: 13, cursor: ldocs || vendasFiltradas.length === 0 ? 'not-allowed' : 'pointer', opacity: ldocs || vendasFiltradas.length === 0 ? 0.5 : 1, fontFamily: 'var(--font-sans)' }}>
+            <FileSpreadsheet size={15} /> Exportar CSV (Excel)
+          </button>
+        ) : (
+          <button onClick={exportarCSV} disabled={litens || linhas.length === 0}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--green)', color: 'var(--surface-card)', fontWeight: 700, fontSize: 13, cursor: litens || linhas.length === 0 ? 'not-allowed' : 'pointer', opacity: litens || linhas.length === 0 ? 0.5 : 1, fontFamily: 'var(--font-sans)' }}>
+            <FileSpreadsheet size={15} /> Exportar CSV (Excel)
+          </button>
+        )}
       </div>
 
       {/* gráfico mensal (só no agrupamento Por mês) */}
@@ -340,7 +400,50 @@ export default function Relatorios() {
         </Card>
       )}
 
+      {/* ── HISTÓRICO DE VENDAS (por documento) ── */}
+      {groupBy === 'venda' && (
+        <Card>
+          <CardTitle>
+            Histórico de vendas — {fmtNum(vendasFiltradas.length)} {vendasFiltradas.length === 1 ? 'venda' : 'vendas'}
+            {vendasFiltradas.length > LIMITE_VENDAS && <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}> — mostrando as {LIMITE_VENDAS} mais recentes; exporte o CSV para ver todas</span>}
+          </CardTitle>
+          {ldocs ? <Spinner /> : vendasFiltradas.length === 0 ? (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32, fontSize: 13 }}>
+              Nenhuma venda para os filtros selecionados.
+            </div>
+          ) : (
+            <div className="ecom-scroll-x">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+                <thead><tr>
+                  <th style={thL}>Data</th>
+                  <th style={thL}>Vendedor</th>
+                  <th style={thL}>Canal</th>
+                  <th style={thL}>Nota fiscal</th>
+                  <th style={th}>Valor</th>
+                </tr></thead>
+                <tbody>
+                  {vendasFiltradas.slice(0, LIMITE_VENDAS).map(d => (
+                    <tr key={`${d.tipo_doc}|${d.id_doc}|${d.id_empresa}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)' }}>{d.data_faturamento.slice(8,10)}/{d.data_faturamento.slice(5,7)}/{d.data_faturamento.slice(0,4)}</td>
+                      <td style={{ padding: '8px 10px' }}>{nomeDe(d.id_vendedor)}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{CANAL_LABEL[canalDe(d.id_vendedor)]}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{d.num_nf || '—'}</td>
+                      <td style={td}>{fmtBRL(d.fat)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: 'var(--surface-subtle)' }}>
+                    <td colSpan={4} style={{ padding: '8px 10px', fontWeight: 700 }}>TOTAL ({fmtNum(vendasFiltradas.length)} vendas)</td>
+                    <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(vendasTotais.fat)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* ── TABELA ── */}
+      {groupBy !== 'venda' && (
       <Card>
         <CardTitle>Agrupado por {colNome.toLowerCase()} — {linhas.length} {rotulo} <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta devolução externa</span></CardTitle>
         {litens ? <Spinner /> : linhas.length === 0 ? (
@@ -388,6 +491,7 @@ export default function Relatorios() {
           </div>
         )}
       </Card>
+      )}
     </div>
   )
 }
