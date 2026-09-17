@@ -1,19 +1,19 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-09-16
+> Atualizado: 2026-09-17
 
 ## Documentação
 
 | Arquivo | Conteúdo | Quando abrir |
 |---|---|---|
 | `docs/META_CAPI_E_RELATORIOS.md` (01/09) | guia do Meta: atribuição, relatórios de campanha e CAPI — inclui o handoff do repoint do Tintim, a regra de leitura da conversão e o estado do CAPI | antes de mexer em ROAS, CAC, atribuição ou em qualquer número que venha do Meta Ads |
+| `docs/sql/2026-09-17_preflight_vw_ecom_docs_datas.sql` + `2026-09-17_ensaio_aceite_vw_ecom_docs_datas.sql` | pré-voo e teste de aceite da view `vw_ecom_docs_datas` (data de criação do pedido a nível de documento) | antes de mexer em `use-faturamento.ts` ou em qualquer card que compare "faturado" com "pedido feito" |
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
 
 ## Onde está
-- **Clone real (git):** `C:\CLAUDE\Projetos GitHub\bononiecommerce\temp_clone` (remote `leobononi2906/bononiecommerce`, branch `main`).
-  ⚠️ A raiz `bononiecommerce\` é wrapper (docs + xlsx soltos) — o código vive em `temp_clone/`. **SEMPRE `git fetch` antes** (tem sessão paralela commitando na main).
+- **Clone real (git):** `C:\Aplicações da bononi\bononiecommerce` (remote `leobononi2906/bononiecommerce`, branch `main`). Confirmado em 17/09/2026 — `temp_clone` em `C:\CLAUDE\...` mencionado aqui antes **não existe mais**; esta é a única pasta. **SEMPRE `git fetch` antes** (tem sessão paralela commitando na main).
 - **Deploy:** https://bononiecommerce.vercel.app · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (tabelas/views `ecom_*`, intake `umbler_*`).
 - **Stack:** React/Vite com **inline styles + CSS vars próprias** (`--blue-dark`, `--green`…), **NÃO Tailwind**. Hooks em `src/hooks/`.
@@ -37,6 +37,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 ## Pendências / próximos passos
 - [ ] **Os 63 leads que sobraram sem vínculo não são do e-commerce.** `aTGhkpoXrJLt7_rY` (39, Henrique Trombini/ERP 7686) e `aTG6AL5d9I0UBGsZ` (22, Michael/ERP 47544) têm **0 docs ONLINE em 6 meses** — são loja física e O.S. **Não vincular**: vinculá-los colocaria venda de balcão no ranking do e-commerce. Some `aYOfFB11Ou5bM8fo` (2 leads). O caminho certo é separar esses atendimentos na Umbler, não no dashboard.
 - [ ] **🔴 O Meta cortou o acesso à API — só o Leo resolve, no App Dashboard do Meta.** Invocando `ecom-meta-sync` à mão, a resposta é: `Meta API: API access disrupted. Go to the App Dashboard and complete Data Use Checkup.` É a revisão anual de uso de dados, vencida. **Nada de custo de mídia entra enquanto isso não for feito** — e os anúncios estão rodando (127 a 186 leads de anúncio por dia de 10 a 16/09), então o rombo cresce ~R$ 750/dia. ROAS e CAC da Home seguem inflados (a tela avisa desde 16/09). Depois do checkup, invocar a função uma vez com `{"dias": 30}` para recuperar o período perdido, e conferir que o aviso da Home some.
+- [ ] **Decidir se o mesmo conserto de "data do pedido" (ver dev-log 17/09) deve ir para Marketplace e Vendedores.** A investigação achou que o Marketplace pode ter o mesmo tipo de distorção: a conta "ML BONONI FULL" fatura em lote em só 3-5 datas por mês, então cortar o período num dia qualquer é loteria (em set/26 o lote grande caiu antes do corte, amplificando o "+52%" do card — não é erro, mas é a mesma mecânica do problema do Site). Vendedores não tem indício de lote parecido, mas não foi conferido a fundo.
 - [ ] **Publicar a Edge Function `ecom-meta-sync` corrigida** (`supabase/functions/ecom-meta-sync/index.ts`, no repo desde 16/09) — **pelo painel**, que é o único caminho. Sem ela, mesmo depois do checkup os dias 10–16/09 ficam vazios para sempre. Não deu para testar o backfill de verdade: enquanto o acesso estiver cortado, qualquer versão devolve o mesmo erro do Meta.
 - [ ] **`vw_ecom_subgrupos` e `vw_ecom_campanha_conversao` continuam raspando o timeout** — hoje seguram porque o retry do front cobre. O conserto de verdade precisa de índice em `vw_comercial_itens_faturados`, que é recarregada inteira ~500x pelo `rep_swap`: medir o impacto no swap antes de criar qualquer coisa lá.
 - [ ] **Margem líquida do marketplace (frete+taxas) — BLOQUEADA em achar a tabela certa.** Leo pediu pra descontar frete+comissão do card "Faturamento Marketplace". `vw_comercial_docs_faturados` já tem `taxa_marketplace`/`valor_frete`, mas funciona só pro ML (Shopee tem `taxa_marketplace=0`, gap de dado). O Leo mandou print do ERP com "FRETE E-COMMERCE PGTO"/"COMISSAO E-COMMERCE" (código ~164486+) — confirmado Firebird antigo, mas não é `TBL_MOVIMENTO` (não bate com `vw_fb_movimento_base`, que só vai até cod_movimento 114329). Falta achar a tabela certa e escrever extração nova no `bononi-replicador`. (Havia aqui, até 15/09, um ponteiro para um "ESTADO_ATUAL_APP" em `docs/` que **não existe** — o detalhe que importava é o desta linha.)
@@ -50,6 +51,12 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-17 — **"Faturamento do Site" contava faturamento de outros meses como se fosse do período — o card media a data errada.** Pedido do Leo: o valor real na Nuvemshop (sem pedido manual), 01–17/09, era R$ 16.427,59; a tela mostrava R$ 40.788,59.
+  - **A causa, provada por SQL:** o card soma pela **data de faturamento** (quando o ERP emite a nota), e não pela **data do pedido**. Em 03/09/2026 o ERP faturou de uma vez um lote de **26 pedidos represados de fevereiro a agosto** (provável encerramento da Tray) — 29 docs no total somavam R$ 40.788,59, mas só **3 foram pedidos de fato em setembro**, somando R$ 16.263,92 (bate com o número do Leo a R$ 163,67, provavelmente 1 pedido ainda não integrado ou diferença de frete). Descartado, com número: duplicação de linha, canal errado, taxa de marketplace em dobro, frete contado duas vezes — nenhum bate, nenhum explica a diferença.
+  - **Banco (produção `vishxwdxqiygbxmtpfoy` e teste `gxzhuewczlixksqrmjuk`, aplicado):** view nova `vw_ecom_docs_datas` (`supabase/migrations/20260917120000_ecom_docs_datas.sql`) — 1 linha por documento com `data_criacao`/`data_doc`, que antes só existia a nível de item em `vw_comercial_itens_margem`. Não altera nem apaga nada existente. Pré-voo confirmou **zero** documentos com mais de uma data de criação entre seus itens (a `DISTINCT ON` não escolhe entre valores divergentes) e volume 1:1 com `vw_comercial_docs_faturados` (31.143 = 31.143).
+  - **Código:** `use-faturamento.ts` ganhou `useFaturamentoSitePeriodo`/`useFaturamentoSitePeriodoAnterior` — busca os docs do canal site/tray (sem filtro de data, o canal é pequeno) e cruza em memória com `vw_ecom_docs_datas` pela tripla `tipo_doc/id_doc/id_empresa` (as duas views não têm FK para o PostgREST embutir automaticamente), filtrando por `data_criacao` no período. `Home.tsx`: os cards "Faturamento Site" (nas duas seções em que aparece), "Ticket médio (site)", ROAS geral e CAC agora usam esse valor. "Total ONLINE (bruto/líquido)" também soma o site corrigido.
+  - **Escopo, decisão do Leo:** só o canal Site foi corrigido agora. Marketplace e Vendedores continuam pela data de faturamento — ver Pendências, porque o Marketplace (ML BONONI FULL) tem o mesmo padrão de faturamento em lote.
+  - **Conferido:** ensaio em produção reproduziu exatamente R$ 16.263,92 em 3 docs (join view+dado real, em transação com rollback); pós-conferência depois de aplicar bateu o mesmo número lendo como o app lê (chave anon). Testado também local contra o banco de teste (sem erro nos 4 lugares que usam o dado novo) — números diferentes lá porque o teste tem dado sintético, não é o mesmo caso de setembro.
 - 2026-09-16 (fim do dia) — **O Meta Ads não estava "atrasado": o Meta cortou o acesso à API, e o sync perdia dia para sempre.**
   - **Causa, em texto claro da própria API** (invocando `ecom-meta-sync` à mão): `API access disrupted. Go to the App Dashboard and complete Data Use Checkup.` Revisão anual de uso de dados vencida — resolve-se no App Dashboard do Meta, não aqui.
   - **Não é anúncio pausado, e isso foi verificado antes de concluir qualquer coisa.** Cruzando `umbler_lead_origem` (que só ganha linha quando chega lead COM `ad_id`) com `ecom_meta_ads` dia a dia: de 10 a 16/09 entraram 127 a 186 leads de anúncio **por dia**, no mesmo patamar dos dias com carga — com zero de custo registrado. Anúncio no ar, custo faltando.
