@@ -54,6 +54,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-17 (5) — **Logo real da marca na sidebar e no favicon**, no lugar do ícone Snowflake genérico dentro de um quadrado. Pedido do Leo, depois de aplicar o design system. Símbolo copiado do pacote da skill (`assets/logo-mark.png`, fundo transparente) para `src/assets/stonni-logo-mark.png`; favicon em `public/favicon-stonni.png`. É um dos 3 lugares em que o gradiente da marca pode aparecer (símbolo, avatar, login) — não é decoração fora de regra.
 - 2026-09-17 (4) — **Design system Stonni interno aplicado no app inteiro.** Pedido do Leo. Detalhe completo em `docs/2026-09-17-design-system.md`; resumo aqui:
   - Cor primária: azul genérico `#0077CC` → azul da marca `#1A74C4`; cartão em destaque: navy `#1A3A8F` → índigo `#16103D` (mesmo tom da navegação, quando a Home ganhar uma).
   - Tipografia: DM Sans/DM Mono → Archivo (título/KPI) + IBM Plex Sans (corpo/UI) + IBM Plex Mono (identificador/número).

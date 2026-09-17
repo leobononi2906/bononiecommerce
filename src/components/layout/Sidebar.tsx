@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, Snowflake, ChevronRight, PackageSearch, Handshake, FileText, TrendingUp } from 'lucide-react'
+import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, ChevronRight, PackageSearch, Handshake, FileText, TrendingUp } from 'lucide-react'
+import logoMark from '../../assets/stonni-logo-mark.png'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; sub?: boolean; parent?: string }
 
@@ -34,12 +35,12 @@ export default function Sidebar() {
       transition: 'width 0.2s ease',
       overflow: 'hidden',
     }}>
-      {/* Logo */}
+      {/* Logo — símbolo oficial da marca (um dos 3 lugares em que o gradiente da marca pode
+          aparecer: símbolo, avatar de iniciais, tela de login). Nome ao lado em Archivo 800,
+          já que não existe wordmark vetorial fornecido (ver readme do design system). */}
       <div style={{ padding: collapsed ? '16px 0' : '16px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, justifyContent: collapsed ? 'center' : 'flex-start' }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Snowflake size={14} color="var(--surface-card)" />
-        </div>
-        {!collapsed && <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--blue-dark)' }}>Stonni</div><div style={{ fontSize: 10, color: 'var(--text-hint)' }}>Ecommerce</div></div>}
+        <img src={logoMark} alt="Stonni" style={{ width: 28, height: 28, objectFit: 'contain', flexShrink: 0 }} />
+        {!collapsed && <div><div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--blue-dark)' }}>Stonni</div><div style={{ fontSize: 10, color: 'var(--text-hint)' }}>Ecommerce</div></div>}
       </div>
 
       {/* Nav */}
