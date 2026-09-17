@@ -4,7 +4,8 @@
 export { useQuery, getPeriodRange, getPreviousPeriodRange, periodoLabel, periodoLabelAnterior, getCanal, MKT_NAMES, SITE_NAMES } from '../lib/query'
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses,
-  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior } from './use-faturamento'
+  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  comDataDePedido } from './use-faturamento'
 export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses, useDevolucaoPorVendedorPeriodo, useDevolucaoItens } from './use-devolucao'
 export type { DevItemRaw } from './use-devolucao'
 export { useVendedores, useEsperaVendedor, useTempoResposta, useUmblerVendedores, useInternos } from './use-vendedores'

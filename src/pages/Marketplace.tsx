@@ -59,12 +59,15 @@ const COLORS = ['var(--blue-dark)', 'var(--blue-mid)', 'var(--cyan-500)', 'var(-
 
 export default function Marketplace() {
   const { periodo } = usePeriodo()
-  const { data, loading, error } = useMarketplaceCanais(periodo)
-  const { data: seis, loading: l6 } = useMarketplace6Meses()
   // Canais descobertos do próprio faturamento: canal novo no ERP entra sozinho na tabela
-  // de produtos e no seletor, em vez de ficar de fora sem aviso.
-  const { data: mktCanais } = useMktCanais()
-  const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses(mktCanais?.map(c => c.id) ?? null)
+  // de produtos e no seletor, em vez de ficar de fora sem aviso. `useMarketplaceCanais` precisa
+  // desses ids ANTES (filtra por id_vendedor pra não baixar o histórico ONLINE inteiro).
+  const { data: mktCanais, loading: lCanaisIds, error: eCanaisIds } = useMktCanais()
+  const idsCanais = mktCanais?.map(c => c.id) ?? null
+  const { data, loading: lFat, error } = useMarketplaceCanais(periodo, idsCanais)
+  const loading = lFat || lCanaisIds || !mktCanais
+  const { data: seis, loading: l6 } = useMarketplace6Meses()
+  const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses(idsCanais)
   const [canalSel, setCanalSel] = useState<number | 'ALL'>('ALL')
   const [metric, setMetric] = useState<'fat' | 'qtd'>('fat')
 
@@ -138,9 +141,9 @@ export default function Marketplace() {
         </span>
       </PageHeader>
 
-      {error && (
+      {(error || eCanaisIds) && (
         <div style={{ background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--feedback-danger-border)', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
-          Erro ao carregar dados: {error}
+          Erro ao carregar dados: {error || eCanaisIds}
         </div>
       )}
 

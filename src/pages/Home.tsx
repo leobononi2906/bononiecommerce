@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { Calendar } from 'lucide-react'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  useMarketplaceCanais, useMktCanais,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
   useSubgrupos, useLeads, useMetaAds, getCanal, getPeriodRange } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
@@ -50,6 +51,14 @@ export default function Home() {
   // Ver docs/STATUS.md (17/09/2026).
   const { data: siteP,   loading: lsp,  error: esp,   reload: rsp }   = useFaturamentoSitePeriodo(periodo)
   const { data: siteAnt,             error: esant, reload: rsant }  = useFaturamentoSitePeriodoAnterior(periodo)
+  // Faturamento do marketplace, mesma lógica: pela data do PEDIDO, não pela de faturamento —
+  // achado em 17/09/2026 (mesmo dia do site): 726 de 1.360 docs de set/26 eram pedido de
+  // abr-ago represado, faturado em lote (229 de uma vez em 11/09). Ver docs/STATUS.md.
+  const { data: mktIdsData, loading: lmkids, error: emkids } = useMktCanais()
+  const mktIds = mktIdsData?.map(c => c.id) ?? null
+  const { data: mkt,    loading: lmkt, error: emkt,  reload: rmkt }  = useMarketplaceCanais(periodo, mktIds)
+  const lmktTotal = lmkt || lmkids || !mktIdsData
+  const emktTotal = emkt || emkids
   const { data: dev6,                error: ed6,   reload: rd6 }   = useDevolucao6Meses()
   const { data: devP,   loading: ldp, error: edp,   reload: rdp }   = useDevolucaoPeriodo(periodo)
   const { data: devAnt,              error: edant, reload: rdant } = useDevolucaoPeriodoAnterior(periodo)
@@ -57,9 +66,9 @@ export default function Home() {
   const { data: leads,  loading: ll,   error: eleads, reload: rleads } = useLeads(periodo)
   const { data: metaAds, loading: lmeta, error: emeta, reload: rmeta } = useMetaAds(periodo)
 
-  // Um KPI que soma bruto e devolução só é confiável se AS DUAS cargas vieram.
-  const eTotal = efp || edp || esp
-  const eTotalAnt = efant || edant || esant
+  // Um KPI que soma bruto e devolução só é confiável se todas as cargas vieram.
+  const eTotal = efp || edp || esp || emktTotal
+  const eTotalAnt = efant || edant || esant || emktTotal
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -92,8 +101,10 @@ export default function Home() {
   // docs/STATUS.md 17/09/2026).
   const siteReal    = useMemo(() => (siteP||[]).reduce((s,r:any)=>s+(Number(r.faturamento_doc)||0),0), [siteP])
   const siteRealAnt = useMemo(() => (siteAnt||[]).reduce((s,r:any)=>s+(Number(r.faturamento_doc)||0),0), [siteAnt])
-  const canais    = { ...canaisBruto, site: siteReal, total: canaisBruto.vendedor + siteReal + canaisBruto.marketplace }
-  const canaisAnt = { ...canaisAntBruto, site: siteRealAnt, total: canaisAntBruto.vendedor + siteRealAnt + canaisAntBruto.marketplace }
+  const mktReal    = mkt?.totalAtual ?? 0
+  const mktRealAnt = mkt?.totalAnt ?? 0
+  const canais    = { ...canaisBruto, site: siteReal, marketplace: mktReal, total: canaisBruto.vendedor + siteReal + mktReal }
+  const canaisAnt = { ...canaisAntBruto, site: siteRealAnt, marketplace: mktRealAnt, total: canaisAntBruto.vendedor + siteRealAnt + mktRealAnt }
   const devol     = useMemo(() => somaDevolucao(devP),   [devP])
   const devolAnt  = useMemo(() => somaDevolucao(devAnt), [devAnt])
   // Faturamento líquido = bruto − devolução externa
@@ -261,6 +272,8 @@ export default function Home() {
         { nome: 'Faturamento do período anterior', error: efant, reload: rfant },
         { nome: 'Faturamento do site (data do pedido)', error: esp, reload: rsp },
         { nome: 'Faturamento do site anterior (data do pedido)', error: esant, reload: rsant },
+        { nome: 'Faturamento do marketplace (data do pedido)', error: emkt, reload: rmkt },
+        { nome: 'Canais de marketplace', error: emkids },
         { nome: 'Devolução do período',    error: edp,    reload: rdp },
         { nome: 'Devolução do período anterior', error: edant, reload: rdant },
         { nome: 'Faturamento 6 meses',     error: ef6,    reload: rf6 },
@@ -276,18 +289,18 @@ export default function Home() {
           {...(lfp||eTotalAnt?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
         <KpiCard label="Faturamento Site"         value={kpiValor(esp, lsp, fmtBRL(canais.site))}
           {...(lsp||eTotalAnt?{}:cmp(canais.site, canaisAnt.site))} />
-        <KpiCard label="Faturamento Marketplace"  value={kpiValor(efp, lfp, fmtBRL(canais.marketplace))}
-          {...(lfp||eTotalAnt?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
+        <KpiCard label="Faturamento Marketplace"  value={kpiValor(emktTotal, lmktTotal, fmtBRL(canais.marketplace))}
+          {...(lmktTotal||eTotalAnt?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
       </KpiGrid>
 
       <SectionLabel>Líquido após devolução externa — período selecionado</SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Total ONLINE (bruto)"   value={kpiValor(efp||esp, lfp||lsp, fmtBRL(canais.total))}
-          {...((lfp||lsp)||eTotalAnt?{}:cmp(canais.total, canaisAnt.total))} />
+        <KpiCard label="Total ONLINE (bruto)"   value={kpiValor(efp||esp||emktTotal, lfp||lsp||lmktTotal, fmtBRL(canais.total))}
+          {...((lfp||lsp||lmktTotal)||eTotalAnt?{}:cmp(canais.total, canaisAnt.total))} />
         <KpiCard label="Devolução externa"       value={kpiValor(edp, ldp, '− '+fmtBRL(devol.total))}
           sub={ldp||eTotal?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
-        <KpiCard label="Total ONLINE líquido"    value={kpiValor(eTotal, lfp||lsp||ldp, fmtBRL(liq.total))} highlight
-          {...((lfp||lsp||ldp)||eTotal||eTotalAnt?{}:cmp(liq.total, liqAnt.total))} />
+        <KpiCard label="Total ONLINE líquido"    value={kpiValor(eTotal, lfp||lsp||lmktTotal||ldp, fmtBRL(liq.total))} highlight
+          {...((lfp||lsp||lmktTotal||ldp)||eTotal||eTotalAnt?{}:cmp(liq.total, liqAnt.total))} />
       </KpiGrid>
 
       <SectionLabel>Tráfego — retorno sobre investimento <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— o tráfego (Meta Ads) alimenta vendas do site E dos vendedores (fechadas por WhatsApp); ROAS/CAC = (site + vendedores) ÷ investimento em tráfego, período selecionado</span></SectionLabel>

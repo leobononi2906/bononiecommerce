@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { useQuery, getPeriodRange, getPreviousPeriodRange, getCanal, buscarTudo } from '../lib/query'
+import { comDataDePedido } from './use-faturamento'
 import type { EcomSubgrupo, Periodo } from '../types'
 
 // ── Marketplace: desempenho por canal (ML, Shopee…) ───────────────
@@ -16,18 +17,24 @@ export function normMkt(nome: string): string {
   return (nome || '').trim().replace(/\s+/g, ' ').toUpperCase()
 }
 
-async function aggMkt(start: string, end: string) {
-  const data = await buscarTudo<any>((de, ate) => supabase
-    .from('vw_comercial_docs_faturados')
-    .select('id,nome_vendedor,faturamento_doc')
+// Faturamento por canal de marketplace, contado pela DATA DO PEDIDO (não pela data de
+// faturamento) — achado em 17/09/2026: o ERP fatura o marketplace em lote, e 726 dos 1.360
+// docs de setembro/26 eram na verdade pedido de abril a agosto (lote de 229 caiu de uma vez em
+// 11/09). Mesma mecânica e mesma correção já aplicada ao canal Site (ver `use-faturamento.ts`).
+// Recebe os ids do canal (de `useMktCanais`) para não ter que baixar TODO o histórico ONLINE
+// (site+vendedor+marketplace) só para filtrar marketplace em memória depois.
+async function aggMktPorPedido(ids: number[], start: string, end: string) {
+  const m = new Map<string, { fat: number; ped: number }>()
+  if (!ids.length) return m
+  const docs = await buscarTudo<any>((de, ate) => supabase
+    .from('vw_comercial_docs_margem')
+    .select('id,tipo_doc,id_doc,id_empresa,nome_vendedor,faturamento_doc')
     .eq('tipo_saida', 'ONLINE')
-    .gte('data_faturamento', start)
-    .lte('data_faturamento', end)
+    .in('id_vendedor', ids)
     .order('id', { ascending: true })
     .range(de, ate))
-  const m = new Map<string, { fat: number; ped: number }>()
-  data.forEach((r: any) => {
-    if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+  const comData = await comDataDePedido(docs, start, end)
+  comData.forEach((r: any) => {
     const k = normMkt(r.nome_vendedor)
     const c = m.get(k) || { fat: 0, ped: 0 }
     c.fat += Number(r.faturamento_doc) || 0
@@ -56,13 +63,17 @@ async function aggMktDev(start: string, end: string) {
   return m
 }
 
-/** Faturamento por canal no período + comparativo com o período anterior. */
-export function useMarketplaceCanais(periodo: Periodo) {
+/** Faturamento por canal no período + comparativo com o período anterior, pela data do pedido.
+ *  `ids` vem de `useMktCanais()` — sem eles (ainda carregando) devolve vazio, não zero-como-fato,
+ *  porque quem chama já protege com o `loading` combinado. */
+export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
   const cur = getPeriodRange(periodo)
   const prev = getPreviousPeriodRange(periodo)
+  const chaveIds = (ids || []).join(',')
   return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number }>(async () => {
+    const idsOk = ids || []
     const [a, b, da, db] = await Promise.all([
-      aggMkt(cur.start, cur.end), aggMkt(prev.start, prev.end),
+      aggMktPorPedido(idsOk, cur.start, cur.end), aggMktPorPedido(idsOk, prev.start, prev.end),
       aggMktDev(cur.start, cur.end), aggMktDev(prev.start, prev.end),
     ])
     const nomes = new Set<string>([...a.keys(), ...b.keys(), ...da.keys(), ...db.keys()])
@@ -85,7 +96,7 @@ export function useMarketplaceCanais(periodo: Periodo) {
     const totalAtual = canais.reduce((s, c) => s + c.fatAtual, 0)
     const totalAnt = canais.reduce((s, c) => s + c.fatAnt, 0)
     return { canais, totalAtual, totalAnt }
-  }, [cur.start, cur.end, prev.start, prev.end])
+  }, [chaveIds, cur.start, cur.end, prev.start, prev.end])
 }
 
 export interface MktCanalId { id: number; label: string }
