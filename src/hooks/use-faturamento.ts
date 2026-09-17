@@ -37,32 +37,32 @@ export function useFaturamentoPeriodoAnterior(periodo: Periodo) {
 // do canal, porque as duas views não têm uma FK que o PostgREST possa embutir.
 const SITE_LIST = Array.from(SITE_NAMES)
 
-/** Busca `vw_ecom_docs_datas` para uma lista de id_doc, em lotes — uma lista grande (o
- *  marketplace tem ~8.700 documentos históricos) estoura o tamanho de URL num `.in()` só. */
-const LOTE_IDS = 400
-export async function fetchDocsDatasPorIdDoc(idDocs: number[]): Promise<any[]> {
-  const lotes: number[][] = []
-  for (let i = 0; i < idDocs.length; i += LOTE_IDS) lotes.push(idDocs.slice(i, i + LOTE_IDS))
-  const resultados = await Promise.all(lotes.map(lote => buscarTudo<any>((de, ate) => supabase
-    .from('vw_ecom_docs_datas')
-    .select('tipo_doc,id_doc,id_empresa,data_criacao')
-    .in('id_doc', lote)
-    .order('id_doc', { ascending: true })
-    .range(de, ate))))
-  return resultados.flat()
-}
-
-/** Cruza docs (já filtrados por canal) com a data de criação, e recorta pelo período pedido. */
+/** Cruza docs (já filtrados por canal, histórico completo) com a data de criação, e recorta pelo
+ *  período pedido — filtrando `vw_ecom_docs_datas` por DATA (poucas páginas), não por lista de
+ *  id_doc. A primeira versão disparava um `.in(id_doc, lote)` por lote de 400 ids — no
+ *  marketplace (~8.700 docs históricos) isso virava ~22 requisições em paralelo, disputando
+ *  conexão com o resto da tela e derrubando até o Faturamento Vendedores por timeout (achado em
+ *  17/09/2026, "tá demorando demais"). Filtrar por data resolve com 1-2 páginas, porque o
+ *  universo de "algo foi criado neste período" é bem menor que "todo o histórico do canal".
+ *  Sem `.order('id')` estável: a view não expõe `id`, mas a tripla tipo_doc+id_doc+id_empresa é
+ *  única (é o `DISTINCT ON` dela), então ordenar pelas três dá paginação determinística. */
 export async function comDataDePedido<T extends { tipo_doc: string; id_doc: number; id_empresa: number }>(
   docs: T[], start: string, end: string,
 ): Promise<(T & { data_criacao: string })[]> {
   if (!docs.length) return []
-  const idDocs = [...new Set(docs.map(d => d.id_doc))]
-  const datas = await fetchDocsDatasPorIdDoc(idDocs)
+  const datas = await buscarTudo<any>((de, ate) => supabase
+    .from('vw_ecom_docs_datas')
+    .select('tipo_doc,id_doc,id_empresa,data_criacao')
+    .gte('data_criacao', start)
+    .lte('data_criacao', end)
+    .order('tipo_doc', { ascending: true })
+    .order('id_doc', { ascending: true })
+    .order('id_empresa', { ascending: true })
+    .range(de, ate))
   const porChave = new Map(datas.map((d: any) => [`${d.tipo_doc}|${d.id_doc}|${d.id_empresa}`, d.data_criacao]))
   return docs
     .map(d => ({ ...d, data_criacao: porChave.get(`${d.tipo_doc}|${d.id_doc}|${d.id_empresa}`) }))
-    .filter((d): d is T & { data_criacao: string } => !!d.data_criacao && d.data_criacao >= start && d.data_criacao <= end)
+    .filter((d): d is T & { data_criacao: string } => !!d.data_criacao)
 }
 
 async function fetchFaturamentoSite(start: string, end: string) {
