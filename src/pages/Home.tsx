@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { Calendar } from 'lucide-react'
+import { Calendar, Clock } from 'lucide-react'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
   useMarketplaceCanais, useMktCanais,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
-  useSubgrupos, useLeads, useMetaAds, getCanal, getPeriodRange } from '../hooks/useData'
+  useSubgrupos, useLeads, useMetaAds, getCanal, getPeriodRange, diasComPedidoRepresado } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -256,6 +256,18 @@ export default function Home() {
   const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate()
   const mesParcial = periodo === 'mes_atual' && diaAtual < diasNoMes
 
+  // Pedido represado: hoje (e às vezes ontem) aparecem com bem menos pedido do que o normal
+  // porque o ERP ainda não terminou de faturar — não é queda de venda. Achado em 17/09/2026:
+  // marketplace foi de ~40 pedidos/dia pra 4 no dia corrente. Ver docs/STATUS.md.
+  const canaisRepresados = useMemo(() => {
+    if (lsp || lmktTotal) return [] as string[]
+    const fimPeriodo = getPeriodRange(periodo).end
+    const nomes: string[] = []
+    if (diasComPedidoRepresado((siteP||[]).map((r:any)=>r.data_criacao), fimPeriodo).length) nomes.push('Site')
+    if (diasComPedidoRepresado(mkt?.datasCriacao||[], fimPeriodo).length) nomes.push('Marketplace')
+    return nomes
+  }, [siteP, mkt, lsp, lmktTotal, periodo])
+
   return (
     <div style={{ padding:'20px 24px', maxWidth:1400 }}>
       <PageHeader title="Visão Geral" />
@@ -264,6 +276,17 @@ export default function Home() {
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--feedback-warning-border)', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
           <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
           <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
+        </div>
+      )}
+
+      {canaisRepresados.length > 0 && (
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--feedback-warning-border)', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
+          <Clock size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
+          <span>
+            <strong>Pedido de hoje represado no faturamento: {canaisRepresados.join(' e ')}.</strong>{' '}
+            O ERP não fatura o pedido no mesmo dia — os últimos 1-2 dias deste período aparecem bem abaixo do normal
+            porque o SGA ainda não terminou de processar, não porque a venda caiu. O valor deve subir sozinho nos próximos dias.
+          </span>
         </div>
       )}
 

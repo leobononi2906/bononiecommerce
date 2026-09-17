@@ -166,6 +166,37 @@ export function periodoLabelAnterior(periodo: Periodo): string {
   return ROTULO_ANT_FIXO[periodo]
 }
 
+function addDias(iso: string, n: number): string {
+  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Quais dos últimos 2 dias corridos (hoje e ontem) têm pedido represado esperando faturamento.
+ *
+ * Achado em 17/09/2026, com dado real: pedido contado pela data de CRIAÇÃO (`vw_ecom_docs_datas`)
+ * só aparece como faturado depois que o ERP processa a nota — e isso não acontece no mesmo dia.
+ * Marketplace foi de ~40 pedidos/dia (08–16/09) para **4** em 17/09 — não é queda de venda, é
+ * atraso de faturamento. Sem este aviso, os últimos 1-2 dias do período parecem uma queda real.
+ *
+ * `datasCriacao` é a lista de `data_criacao` de TODOS os documentos do canal no período (não só
+ * hoje/ontem) — a função usa os dias anteriores como base de comparação. Só avalia se o período
+ * selecionado alcança hoje (período fechado no passado não precisa deste aviso) e só acusa atraso
+ * se houver pelo menos 5 dias "maduros" pra comparar — sem base, fica calado em vez de arriscar.
+ */
+export function diasComPedidoRepresado(datasCriacao: string[], fimPeriodo: string): string[] {
+  const hoje = new Date().toISOString().slice(0, 10)
+  if (fimPeriodo < hoje) return []
+  const porDia = new Map<string, number>()
+  datasCriacao.forEach(d => porDia.set(d, (porDia.get(d) || 0) + 1))
+  const ontem = addDias(hoje, -1)
+  const candidatos = [ontem, hoje].filter(d => d <= fimPeriodo)
+  const maduros = [...porDia.keys()].filter(d => d < ontem).sort().slice(-7)
+  if (maduros.length < 5) return []
+  const media = maduros.reduce((s, d) => s + porDia.get(d)!, 0) / maduros.length
+  return candidatos.filter(d => (porDia.get(d) || 0) < media * 0.5)
+}
+
 export const MKT_NAMES = new Set(['ML BATTOGO', 'ML BONONI FULL', 'ML BONONI', 'SHOPEE BRASIL'])
 // 'SITE' = plataforma antiga (zerou jun-jul/26); 'TRAY' = Tray Commerce, a loja virtual atual (migração abr-jul/26).
 // Ambos representam o MESMO canal de negócio (loja virtual própria) em épocas diferentes.

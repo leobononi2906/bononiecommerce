@@ -1,7 +1,7 @@
 // Barrel re-export — backward compatibility
 // All existing imports from './hooks/useData' continue to work unchanged.
 
-export { useQuery, getPeriodRange, getPreviousPeriodRange, periodoLabel, periodoLabelAnterior, getCanal, MKT_NAMES, SITE_NAMES } from '../lib/query'
+export { useQuery, getPeriodRange, getPreviousPeriodRange, periodoLabel, periodoLabelAnterior, getCanal, MKT_NAMES, SITE_NAMES, diasComPedidoRepresado } from '../lib/query'
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,

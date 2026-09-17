@@ -23,9 +23,8 @@ export function normMkt(nome: string): string {
 // 11/09). Mesma mecânica e mesma correção já aplicada ao canal Site (ver `use-faturamento.ts`).
 // Recebe os ids do canal (de `useMktCanais`) para não ter que baixar TODO o histórico ONLINE
 // (site+vendedor+marketplace) só para filtrar marketplace em memória depois.
-async function aggMktPorPedido(ids: number[], start: string, end: string) {
-  const m = new Map<string, { fat: number; ped: number }>()
-  if (!ids.length) return m
+async function fetchMktComDataDePedido(ids: number[], start: string, end: string) {
+  if (!ids.length) return []
   const docs = await buscarTudo<any>((de, ate) => supabase
     .from('vw_comercial_docs_margem')
     .select('id,tipo_doc,id_doc,id_empresa,nome_vendedor,faturamento_doc')
@@ -33,7 +32,12 @@ async function aggMktPorPedido(ids: number[], start: string, end: string) {
     .in('id_vendedor', ids)
     .order('id', { ascending: true })
     .range(de, ate))
-  const comData = await comDataDePedido(docs, start, end)
+  return comDataDePedido(docs, start, end)
+}
+
+async function aggMktPorPedido(ids: number[], start: string, end: string) {
+  const m = new Map<string, { fat: number; ped: number }>()
+  const comData = await fetchMktComDataDePedido(ids, start, end)
   comData.forEach((r: any) => {
     const k = normMkt(r.nome_vendedor)
     const c = m.get(k) || { fat: 0, ped: 0 }
@@ -41,7 +45,7 @@ async function aggMktPorPedido(ids: number[], start: string, end: string) {
     c.ped++
     m.set(k, c)
   })
-  return m
+  return { agg: m, datas: comData.map((r: any) => r.data_criacao as string) }
 }
 
 // Devolução externa por canal de marketplace (mesma classificação normMkt do faturamento).
@@ -70,12 +74,13 @@ export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
   const cur = getPeriodRange(periodo)
   const prev = getPreviousPeriodRange(periodo)
   const chaveIds = (ids || []).join(',')
-  return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number }>(async () => {
+  return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number; datasCriacao: string[] }>(async () => {
     const idsOk = ids || []
-    const [a, b, da, db] = await Promise.all([
+    const [ra, rb, da, db] = await Promise.all([
       aggMktPorPedido(idsOk, cur.start, cur.end), aggMktPorPedido(idsOk, prev.start, prev.end),
       aggMktDev(cur.start, cur.end), aggMktDev(prev.start, prev.end),
     ])
+    const a = ra.agg, b = rb.agg
     const nomes = new Set<string>([...a.keys(), ...b.keys(), ...da.keys(), ...db.keys()])
     const canais: MktCanal[] = [...nomes].map(nome => {
       const at = a.get(nome) || { fat: 0, ped: 0 }
@@ -95,7 +100,7 @@ export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
     }).sort((x, y) => y.fatAtual - x.fatAtual)
     const totalAtual = canais.reduce((s, c) => s + c.fatAtual, 0)
     const totalAnt = canais.reduce((s, c) => s + c.fatAnt, 0)
-    return { canais, totalAtual, totalAnt }
+    return { canais, totalAtual, totalAnt, datasCriacao: ra.datas }
   }, [chaveIds, cur.start, cur.end, prev.start, prev.end])
 }
 
