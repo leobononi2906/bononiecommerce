@@ -1,13 +1,13 @@
+// Pedido do Leo (17/09/2026): nenhum valor da aplicação usa abreviação (k/M) — sempre o
+// número inteiro, por extenso, inclusive em eixo de gráfico e tooltip.
 export function fmtBRL(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return 'R$ 0'
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(0)}k`
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+/** Mantido por compatibilidade — hoje é idêntica a `fmtBRL`, que já não abrevia. */
 export function fmtBRLFull(value: number | null | undefined): string {
-  if (value == null || isNaN(value)) return 'R$ 0'
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return fmtBRL(value)
 }
 
 export function fmtPct(value: number | null | undefined, decimals = 1): string {
