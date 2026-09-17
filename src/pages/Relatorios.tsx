@@ -406,6 +406,7 @@ export default function Relatorios() {
           <CardTitle>
             Histórico de vendas — {fmtNum(vendasFiltradas.length)} {vendasFiltradas.length === 1 ? 'venda' : 'vendas'}
             {vendasFiltradas.length > LIMITE_VENDAS && <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}> — mostrando as {LIMITE_VENDAS} mais recentes; exporte o CSV para ver todas</span>}
+            <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}> — nota do marketplace com <span style={{color:'var(--blue-mid)'}}>*</span> veio do Bling (via Expedição), não do ERP; o ERP não grava nota pra esse canal</span>
           </CardTitle>
           {ldocs ? <Spinner /> : vendasFiltradas.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32, fontSize: 13 }}>
@@ -427,7 +428,10 @@ export default function Relatorios() {
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)' }}>{d.data_faturamento.slice(8,10)}/{d.data_faturamento.slice(5,7)}/{d.data_faturamento.slice(0,4)}</td>
                       <td style={{ padding: '8px 10px' }}>{nomeDe(d.id_vendedor)}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{CANAL_LABEL[canalDe(d.id_vendedor)]}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{d.num_nf || '—'}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}
+                          title={d.num_nf_origem === 'bling' ? 'Nota via Bling (chave_nfe) — o ERP não grava nº de nota pra este canal' : undefined}>
+                        {d.num_nf || '—'}{d.num_nf_origem === 'bling' && <span style={{color:'var(--blue-mid)'}}> *</span>}
+                      </td>
                       <td style={td}>{fmtBRL(d.fat)}</td>
                     </tr>
                   ))}
