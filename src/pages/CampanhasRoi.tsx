@@ -1,17 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { TrendingUp } from 'lucide-react'
-import { useCampanhaRoi } from '../hooks/useData'
+import { useCampanhaRoi, periodoLabel } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, AlertBanner } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { usePeriodo } from '../components/layout/AppShell'
 import { fmtBRL, fmtNum } from '../lib/fmt'
-import type { Periodo } from '../types'
 
 type SortKey = 'investimento' | 'faturamento' | 'roas' | 'leadsNossos' | 'compraram'
-
-const PERIODO_LABEL: Record<Periodo, string> = {
-  mes_atual: 'Mês atual', mes_anterior: 'Mês anterior', '3_meses': 'Últimos 3 meses', '6_meses': 'Últimos 6 meses',
-}
 
 // Nome curto: tira as tags [F3][data] etc, mantém o essencial pra leitura na tabela.
 function shortCampanha(nome: string): string {
@@ -49,7 +44,7 @@ export default function CampanhasRoi() {
   return (
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
       <PageHeader title="Campanhas — ROI real">
-        <span style={{ fontSize: 12, color: 'var(--text-hint)' }}>{PERIODO_LABEL[periodo]} · investimento, leads e vendas de verdade por campanha</span>
+        <span style={{ fontSize: 12, color: 'var(--text-hint)' }}>{periodoLabel(periodo)} · investimento, leads e vendas de verdade por campanha</span>
       </PageHeader>
 
       {error && (
@@ -61,7 +56,7 @@ export default function CampanhasRoi() {
       {loading ? <Spinner /> : (data||[]).length === 0 ? (
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 48, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', fontSize: 13 }}>
           <TrendingUp size={26} color="var(--text-hint)" style={{ marginBottom: 8 }} /><br />
-          Nenhuma campanha no período ({PERIODO_LABEL[periodo].toLowerCase()}).
+          Nenhuma campanha no período ({periodoLabel(periodo).toLowerCase()}).
         </div>
       ) : (
         <>

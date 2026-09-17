@@ -1,23 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, ShoppingBag, Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais } from '../hooks/useData'
+import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais, periodoLabel, periodoLabelAnterior } from '../hooks/useData'
 import type { MktCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import SparklineCell from '../components/campaigns/SparklineCell'
 import { fmtBRL, fmtNum } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
-import type { Periodo } from '../types'
-
-const PERIODO_LABEL: Record<Periodo, string> = {
-  mes_atual: 'mês atual', mes_anterior: 'mês anterior',
-  '3_meses': 'últimos 3 meses', '6_meses': 'últimos 6 meses',
-}
-const PERIODO_ANT: Record<Periodo, string> = {
-  mes_atual: 'mês anterior', mes_anterior: 'mês retrasado',
-  '3_meses': '3 meses anteriores', '6_meses': '6 meses anteriores',
-}
 
 // Nome curto e amigável para o canal
 function labelCanal(nome: string): string {
@@ -144,7 +134,7 @@ export default function Marketplace() {
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
       <PageHeader title="Marketplace">
         <span style={{ fontSize: 12, color: 'var(--text-hint)' }}>
-          Desempenho por canal · {PERIODO_LABEL[periodo]} vs {PERIODO_ANT[periodo]}
+          Desempenho por canal · {periodoLabel(periodo).toLowerCase()} vs {periodoLabelAnterior(periodo)}
         </span>
       </PageHeader>
 
@@ -168,7 +158,7 @@ export default function Marketplace() {
         </div>
       ) : (
         <>
-          <SectionLabel>Resumo — {PERIODO_LABEL[periodo]}</SectionLabel>
+          <SectionLabel>Resumo — {periodoLabel(periodo)}</SectionLabel>
           <KpiGrid cols={4}>
             <KpiCard label="Total Marketplace (líq.)" value={fmtBRL(totalAtual)} highlight
               sub={devTotal > 0

@@ -134,4 +134,6 @@ export interface EcomOrigemLead {
   cpl: number
 }
 
-export type Periodo = 'mes_atual' | 'mes_anterior' | '3_meses' | '6_meses'
+export type PeriodoFixo = 'mes_atual' | 'mes_anterior' | '3_meses' | '6_meses'
+export interface PeriodoPersonalizado { tipo: 'personalizado'; inicio: string; fim: string }
+export type Periodo = PeriodoFixo | PeriodoPersonalizado

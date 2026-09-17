@@ -1,6 +1,6 @@
-import type { Periodo } from '../../types'
+import type { Periodo, PeriodoFixo } from '../../types'
 
-const OPTIONS: { value: Periodo; label: string }[] = [
+const OPTIONS: { value: PeriodoFixo; label: string }[] = [
   { value: 'mes_atual',    label: 'Mês atual' },
   { value: 'mes_anterior', label: 'Mês anterior' },
   { value: '3_meses',      label: 'Últimos 3 meses' },

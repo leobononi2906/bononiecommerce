@@ -118,6 +118,7 @@ export async function buscarTudo<T>(
 }
 
 export function getPeriodRange(periodo: Periodo): { start: string; end: string } {
+  if (typeof periodo === 'object') return { start: periodo.inicio, end: periodo.fim }
   const now = new Date(), y = now.getFullYear(), m = now.getMonth()
   if (periodo === 'mes_atual')    return { start: new Date(y,m,1).toISOString().slice(0,10),   end: new Date(y,m+1,0).toISOString().slice(0,10) }
   if (periodo === 'mes_anterior') return { start: new Date(y,m-1,1).toISOString().slice(0,10), end: new Date(y,m,0).toISOString().slice(0,10) }
@@ -125,12 +126,44 @@ export function getPeriodRange(periodo: Periodo): { start: string; end: string }
   return { start: new Date(y,m-5,1).toISOString().slice(0,10), end: new Date(y,m+1,0).toISOString().slice(0,10) }
 }
 
+/** Período anterior de um recorte personalizado: mesma duração, terminando no dia anterior ao
+ *  início. 01–15/09 (15 dias) vira 17–31/08 — comparação "vs anterior" com base equivalente. */
+function periodoAnteriorEquivalente(inicio: string, fim: string): { start: string; end: string } {
+  const dias = Math.round((Date.parse(fim + 'T12:00:00') - Date.parse(inicio + 'T12:00:00')) / 86400000) + 1
+  const fimAnt = new Date(inicio + 'T12:00:00'); fimAnt.setDate(fimAnt.getDate() - 1)
+  const inicioAnt = new Date(fimAnt); inicioAnt.setDate(inicioAnt.getDate() - dias + 1)
+  return { start: inicioAnt.toISOString().slice(0,10), end: fimAnt.toISOString().slice(0,10) }
+}
+
 export function getPreviousPeriodRange(periodo: Periodo): { start: string; end: string } {
+  if (typeof periodo === 'object') return periodoAnteriorEquivalente(periodo.inicio, periodo.fim)
   const now = new Date(), y = now.getFullYear(), m = now.getMonth()
   if (periodo === 'mes_atual')    return { start: new Date(y,m-1,1).toISOString().slice(0,10), end: new Date(y,m,0).toISOString().slice(0,10) }
   if (periodo === 'mes_anterior') return { start: new Date(y,m-2,1).toISOString().slice(0,10), end: new Date(y,m-1,0).toISOString().slice(0,10) }
   if (periodo === '3_meses')      return { start: new Date(y,m-5,1).toISOString().slice(0,10), end: new Date(y,m-2,0).toISOString().slice(0,10) }
   return { start: new Date(y,m-11,1).toISOString().slice(0,10), end: new Date(y,m-5,0).toISOString().slice(0,10) }
+}
+
+const ROTULO_FIXO: Record<'mes_atual'|'mes_anterior'|'3_meses'|'6_meses', string> = {
+  mes_atual: 'Mês atual', mes_anterior: 'Mês anterior', '3_meses': 'Últimos 3 meses', '6_meses': 'Últimos 6 meses',
+}
+const ROTULO_ANT_FIXO: Record<'mes_atual'|'mes_anterior'|'3_meses'|'6_meses', string> = {
+  mes_atual: 'mês anterior', mes_anterior: 'mês retrasado', '3_meses': '3 meses anteriores', '6_meses': '6 meses anteriores',
+}
+function fmtCurta(iso: string): string { return iso.slice(8,10) + '/' + iso.slice(5,7) }
+
+/** Rótulo do período pra exibir na tela — mesmo texto nos 4 lugares que hoje repetiam o Record
+ *  (AppShell, Marketplace, CampanhasRoi), agora um só, que também sabe formatar o personalizado. */
+export function periodoLabel(periodo: Periodo): string {
+  if (typeof periodo === 'object') return `${fmtCurta(periodo.inicio)}–${fmtCurta(periodo.fim)}`
+  return ROTULO_FIXO[periodo]
+}
+export function periodoLabelAnterior(periodo: Periodo): string {
+  if (typeof periodo === 'object') {
+    const ant = periodoAnteriorEquivalente(periodo.inicio, periodo.fim)
+    return `${fmtCurta(ant.start)}–${fmtCurta(ant.end)}`
+  }
+  return ROTULO_ANT_FIXO[periodo]
 }
 
 export const MKT_NAMES = new Set(['ML BATTOGO', 'ML BONONI FULL', 'ML BONONI', 'SHOPEE BRASIL'])
