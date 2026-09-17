@@ -44,7 +44,7 @@ export default function CampanhasRoi() {
     fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase',
     whiteSpace: 'nowrap', cursor: key ? 'pointer' : 'default', userSelect: 'none',
   })
-  const td: React.CSSProperties = { padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontSize: 12.5 }
+  const td: React.CSSProperties = { padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12.5 }
 
   return (
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
@@ -115,7 +115,7 @@ export default function CampanhasRoi() {
                       </tr>
                     )
                   })}
-                  <tr style={{ background: '#F8FAFC' }}>
+                  <tr style={{ background: 'var(--surface-subtle)' }}>
                     <td style={{ padding: '9px 10px', fontWeight: 700 }}>TOTAL ({rows.length} campanhas)</td>
                     <td style={{ ...td, fontWeight: 700 }}>{fmtBRL(totais.investimento)}</td>
                     <td colSpan={2} />

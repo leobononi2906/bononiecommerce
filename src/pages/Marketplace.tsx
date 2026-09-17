@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, ShoppingBag } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ShoppingBag, Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais } from '../hooks/useData'
 import type { MktCanal } from '../hooks/useData'
@@ -56,7 +56,7 @@ function DeltaTag({ deltaRs, deltaPct, ant }: { deltaRs: number; deltaPct: numbe
   const Icon = deltaRs === 0 ? Minus : up ? TrendingUp : TrendingDown
   const sinal = up ? '+' : '−'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color, fontWeight: 600, fontSize: 12.5, fontFamily: 'DM Mono, monospace' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-mono)' }}>
       <Icon size={13} />
       {sinal}{fmtBRL(Math.abs(deltaRs))}
       {deltaPct != null && <span style={{ color: 'var(--text-hint)', fontWeight: 500 }}>({sinal}{Math.abs(deltaPct).toFixed(0)}%)</span>}
@@ -65,7 +65,7 @@ function DeltaTag({ deltaRs, deltaPct, ant }: { deltaRs: number; deltaPct: numbe
   )
 }
 
-const COLORS = ['#1A3A8F', '#0077CC', '#00AAEE', '#60A5FA', '#93C5FD', '#C7DBF5']
+const COLORS = ['var(--blue-dark)', 'var(--blue-mid)', 'var(--cyan-500)', 'var(--blue-400)', 'var(--blue-300)', 'var(--blue-100)']
 
 export default function Marketplace() {
   const { periodo } = usePeriodo()
@@ -149,14 +149,15 @@ export default function Marketplace() {
       </PageHeader>
 
       {error && (
-        <div style={{ background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid #F5C2C2', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
+        <div style={{ background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--feedback-danger-border)', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
           Erro ao carregar dados: {error}
         </div>
       )}
 
       {mesParcial && !loading && canais.length > 0 && (
-        <div style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid #FCE3B0', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
-          📅 Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação é com o mês anterior <strong>cheio</strong>, então as quedas são esperadas. Para comparar meses fechados, escolha "Mês anterior" no filtro.
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--feedback-warning-border)', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
+          <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
+          <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação é com o mês anterior <strong>cheio</strong>, então as quedas são esperadas. Para comparar meses fechados, escolha "Mês anterior" no filtro.</span>
         </div>
       )}
 
@@ -196,10 +197,10 @@ export default function Marketplace() {
                   {canais.map((c, i) => (
                     <tr key={c.nome} style={{ borderBottom: i < canais.length - 1 ? '1px solid var(--border)' : 'none', background: c.deltaRs > 0 ? 'rgba(22,163,74,0.04)' : c.deltaRs < 0 ? 'rgba(220,38,38,0.04)' : 'transparent' }}>
                       <td style={{ padding: '9px 10px', fontWeight: 600, color: 'var(--blue-dark)' }}>{labelCanal(c.nome)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{fmtBRL(c.fatAtual)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: c.devAtual > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{c.devAtual > 0 ? '− ' + fmtBRL(c.devAtual) : '–'}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)' }}>{fmtNum(c.pedidosAtual)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)' }}>{fmtBRL(c.ticketAtual)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmtBRL(c.fatAtual)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: c.devAtual > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{c.devAtual > 0 ? '− ' + fmtBRL(c.devAtual) : '–'}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{fmtNum(c.pedidosAtual)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{fmtBRL(c.ticketAtual)}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}><DeltaTag deltaRs={c.deltaRs} deltaPct={c.deltaPct} ant={c.fatAnt} /></td>
                       <td style={{ padding: '9px 10px' }}>
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -208,11 +209,11 @@ export default function Marketplace() {
                       </td>
                     </tr>
                   ))}
-                  <tr style={{ background: '#F8FAFC' }}>
+                  <tr style={{ background: 'var(--surface-subtle)' }}>
                     <td style={{ padding: '9px 10px', fontWeight: 700 }}>Total</td>
-                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totalAtual)}</td>
-                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: devTotal > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{devTotal > 0 ? '− ' + fmtBRL(devTotal) : '–'}</td>
-                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{fmtNum(pedidosTotal)}</td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtBRL(totalAtual)}</td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: devTotal > 0 ? 'var(--red)' : 'var(--text-hint)' }}>{devTotal > 0 ? '− ' + fmtBRL(devTotal) : '–'}</td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{fmtNum(pedidosTotal)}</td>
                     <td />
                     <td style={{ padding: '9px 10px', textAlign: 'center' }}><DeltaTag deltaRs={deltaTotal} deltaPct={pctTotal} ant={totalAnt} /></td>
                     <td />
@@ -256,16 +257,16 @@ export default function Marketplace() {
                   const active = canalSel === opt.v
                   return (
                     <button key={String(opt.v)} onClick={() => setCanalSel(opt.v)}
-                      style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${active ? 'var(--blue-dark)' : 'var(--border)'}`, background: active ? 'var(--blue-dark)' : 'transparent', color: active ? '#fff' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${active ? 'var(--blue-dark)' : 'var(--border)'}`, background: active ? 'var(--blue-dark)' : 'transparent', color: active ? 'var(--surface-card)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
                       {opt.l}
                     </button>
                   )
                 })}
               </div>
-              <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
+              <div style={{ display: 'flex', gap: 3, background: 'var(--surface-sunken)', padding: 3, borderRadius: 8 }}>
                 {([['fat', 'R$'], ['qtd', 'Qtd']] as const).map(([v, l]) => (
                   <button key={v} onClick={() => setMetric(v)}
-                    style={{ padding: '4px 14px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: metric === v ? 'var(--surface)' : 'transparent', color: metric === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: metric === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'DM Sans, sans-serif' }}>
+                    style={{ padding: '4px 14px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: metric === v ? 'var(--surface)' : 'transparent', color: metric === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: metric === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'var(--font-sans)' }}>
                     {l}
                   </button>
                 ))}
@@ -291,22 +292,22 @@ export default function Marketplace() {
                       <tr key={p.referencia} style={{ borderBottom: i < produtos.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <td style={{ padding: '8px 10px', maxWidth: 260, position: 'sticky', left: 0, background: 'var(--surface)' }}>
                           <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.produto}>{p.produto}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: 'DM Mono, monospace' }}>{p.referencia}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: 'var(--font-mono)' }}>{p.referencia}</div>
                         </td>
                         {meses6.map(m => {
                           const v = p.porMes[m.sortKey] || 0
-                          return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color: v > 0 ? 'var(--text-primary)' : 'var(--text-hint)' }}>{v > 0 ? fmtVal(v) : '·'}</td>
+                          return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: v > 0 ? 'var(--text-primary)' : 'var(--text-hint)' }}>{v > 0 ? fmtVal(v) : '·'}</td>
                         })}
-                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(p.total)}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(p.total)}</td>
                       </tr>
                     ))}
-                    <tr style={{ background: '#F8FAFC' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: 700, position: 'sticky', left: 0, background: '#F8FAFC' }}>Total ({produtos.length} produtos)</td>
+                    <tr style={{ background: 'var(--surface-subtle)' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, position: 'sticky', left: 0, background: 'var(--surface-subtle)' }}>Total ({produtos.length} produtos)</td>
                       {meses6.map(m => {
                         const tot = produtos.reduce((s, p) => s + (p.porMes[m.sortKey] || 0), 0)
-                        return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{tot > 0 ? fmtVal(tot) : '·'}</td>
+                        return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{tot > 0 ? fmtVal(tot) : '·'}</td>
                       })}
-                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(produtos.reduce((s, p) => s + p.total, 0))}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(produtos.reduce((s, p) => s + p.total, 0))}</td>
                     </tr>
                   </tbody>
                 </table>

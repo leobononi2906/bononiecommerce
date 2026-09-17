@@ -22,12 +22,12 @@ export function KpiCard({ label, value, sub, trend, icon, highlight }: KpiCardPr
       gap: 6,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {icon && <span style={{ color: highlight ? '#93C5FD' : 'var(--text-hint)', fontSize: 14 }}>{icon}</span>}
-        <span style={{ fontSize: 11, fontWeight: 500, color: highlight ? '#93C5FD' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {icon && <span style={{ color: highlight ? 'var(--blue-300)' : 'var(--text-hint)', fontSize: 14 }}>{icon}</span>}
+        <span style={{ fontSize: 11, fontWeight: 500, color: highlight ? 'var(--blue-300)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
         </span>
       </div>
-      <span style={{ fontSize: 22, fontWeight: 600, color: highlight ? '#FFFFFF' : 'var(--text-primary)', fontFamily: 'DM Mono, monospace', letterSpacing: '-0.5px' }}>
+      <span style={{ fontSize: 22, fontWeight: 600, color: highlight ? 'var(--surface-card)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
         {value}
       </span>
       {sub && (
@@ -54,8 +54,8 @@ export function Badge({ value, type = 'neutral' }: BadgeProps) {
     ok:      { bg: 'var(--green-bg)',  color: 'var(--green)' },
     warn:    { bg: 'var(--amber-bg)',  color: 'var(--amber)' },
     err:     { bg: 'var(--red-bg)',    color: 'var(--red)' },
-    info:    { bg: '#EFF6FF',          color: 'var(--blue-mid)' },
-    neutral: { bg: '#F1F5F9',          color: 'var(--text-muted)' },
+    info:    { bg: 'var(--feedback-info-bg)',          color: 'var(--blue-mid)' },
+    neutral: { bg: 'var(--surface-sunken)',          color: 'var(--text-muted)' },
   }
   const s = styles[type]
   return (
@@ -124,7 +124,7 @@ export function AlertBanner({ type, children }: { type: 'error' | 'warning'; chi
       display: 'flex', alignItems: 'center', gap: 8,
       padding: '8px 12px',
       borderRadius: 'var(--radius)',
-      border: `1px solid ${type === 'error' ? '#FECACA' : '#FDE68A'}`,
+      border: `1px solid ${type === 'error' ? 'var(--feedback-danger-border)' : 'var(--feedback-warning-border)'}`,
       background: type === 'error' ? 'var(--red-bg)' : 'var(--amber-bg)',
       fontSize: 12,
     }}>

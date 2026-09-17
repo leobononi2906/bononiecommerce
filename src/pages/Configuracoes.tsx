@@ -9,7 +9,7 @@ import { usePeriodo } from '../components/layout/AppShell'
 
 const INPUT: React.CSSProperties = {
   padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-  fontSize: 12, fontFamily: 'DM Sans, sans-serif', color: 'var(--text-primary)',
+  fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--text-primary)',
   background: 'var(--surface)', outline: 'none', width: '100%',
 }
 const BTN = (color: string, bg: string): React.CSSProperties => ({
@@ -17,7 +17,7 @@ const BTN = (color: string, bg: string): React.CSSProperties => ({
   padding: '6px 12px', borderRadius: 'var(--radius)',
   border: `1px solid ${color}`, background: bg,
   fontSize: 12, fontWeight: 500, cursor: 'pointer',
-  color, fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
+  color, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
 })
 const th: React.CSSProperties = {
   textAlign: 'left', padding: '5px 8px', fontSize: 11,
@@ -177,12 +177,12 @@ export default function Configuracoes() {
                   const vinculo = vinculadosMap.get(item.id_umbler)
                   const semVinculo = !vinculo
                   return (
-                    <tr key={i} style={{ background:semVinculo?'#FFFBEB':'transparent', borderBottom:'1px solid var(--border)' }}>
-                      <td style={{...td, fontFamily:'DM Mono', fontSize:11, color:'var(--text-muted)'}}>{item.id_umbler}</td>
+                    <tr key={i} style={{ background:semVinculo?'var(--feedback-warning-bg)':'transparent', borderBottom:'1px solid var(--border)' }}>
+                      <td style={{...td, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--text-muted)'}}>{item.id_umbler}</td>
                       <td style={{...td, fontWeight:vinculo?500:400, color:semVinculo?'var(--amber)':'var(--text-primary)'}}>
                         {vinculo ? vinculo.nome_vendedor_erp : (item.nome_umbler===item.id_umbler?'–':item.nome_umbler)}
                       </td>
-                      <td style={{...td, textAlign:'right', fontFamily:'DM Mono', fontWeight:600}}>{item.leads_mes}</td>
+                      <td style={{...td, textAlign:'right', fontFamily:'var(--font-mono)', fontWeight:600}}>{item.leads_mes}</td>
                       <td style={{...td, textAlign:'right', color:'var(--text-muted)', fontSize:11}}>{item.ultimo_lead}</td>
                       <td style={{...td, textAlign:'right'}}>
                         {vinculo
@@ -193,7 +193,7 @@ export default function Configuracoes() {
                       </td>
                       <td style={{...td, textAlign:'right'}}>
                         {semVinculo && (
-                          <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={() => preencherForm(item.id_umbler)}>
+                          <button style={BTN('var(--blue-dark)','var(--feedback-info-bg)')} onClick={() => preencherForm(item.id_umbler)}>
                             <UserPlus size={12}/> Vincular
                           </button>
                         )}
@@ -232,7 +232,7 @@ export default function Configuracoes() {
           </div>
         </div>
         {vendMsg && <div style={{ fontSize:12, color:vendMsg.includes('Erro')?'var(--red)':'var(--green)', marginBottom:8 }}>{vendMsg}</div>}
-        <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveVendedor} disabled={vendSaving}>
+        <button style={BTN('var(--blue-dark)','var(--feedback-info-bg)')} onClick={saveVendedor} disabled={vendSaving}>
           <Plus size={13}/>{vendSaving?'Salvando…':'Salvar vínculo'}
         </button>
       </Card></div>
@@ -249,16 +249,16 @@ export default function Configuracoes() {
             <tbody>
               {(umblerVend||[]).map((v,i)=>(
                 <tr key={i} style={{ borderBottom:'1px solid var(--border)', opacity:v.ativo?1:0.5 }}>
-                  <td style={{...td,fontFamily:'DM Mono',fontSize:11,color:'var(--text-muted)'}}>{v.id_membro_umbler}</td>
+                  <td style={{...td,fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>{v.id_membro_umbler}</td>
                   <td style={{...td,fontWeight:500}}>{v.nome_vendedor_erp}</td>
-                  <td style={{...td,fontFamily:'DM Mono'}}>{v.id_vendedor_erp}</td>
+                  <td style={{...td,fontFamily:'var(--font-mono)'}}>{v.id_vendedor_erp}</td>
                   <td style={{...td,color:'var(--text-muted)'}}>{v.nome_vendedor_erp_completo||'–'}</td>
                   <td style={td}><Badge value={v.ativo?'Ativo':'Inativo'} type={v.ativo?'ok':'neutral'}/></td>
                   <td style={td}>
                     <button
                       onClick={()=>toggleInterno(v.id_membro_umbler, (v as any).interno||false)}
                       title={(v as any).interno ? 'Clique para marcar como vendedor' : 'Clique para marcar como interno'}
-                      style={{ ...BTN((v as any).interno?'var(--amber)':'var(--text-hint)', (v as any).interno?'var(--amber-bg)':'#F1F5F9'), fontSize:11 }}>
+                      style={{ ...BTN((v as any).interno?'var(--amber)':'var(--text-hint)', (v as any).interno?'var(--amber-bg)':'var(--surface-sunken)'), fontSize:11 }}>
                       {(v as any).interno ? '🔧 Interno' : '–'}
                     </button>
                   </td>
@@ -318,7 +318,7 @@ export default function Configuracoes() {
             </select>
           </div>
           <div>
-            <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveCampanhaSubgrupo} disabled={csSaving||!csForm.campanha||!csForm.subgrupo_produto}>
+            <button style={BTN('var(--blue-dark)','var(--feedback-info-bg)')} onClick={saveCampanhaSubgrupo} disabled={csSaving||!csForm.campanha||!csForm.subgrupo_produto}>
               <Plus size={13}/>{csSaving?'Salvando…':'Vincular'}
             </button>
           </div>
@@ -380,7 +380,7 @@ export default function Configuracoes() {
           ))}
         </div>
         {metasMsg && <div style={{ fontSize:12, color:'var(--green)', marginBottom:8 }}>{metasMsg}</div>}
-        <button style={BTN('var(--blue-dark)','#EFF6FF')} onClick={saveMetas}>
+        <button style={BTN('var(--blue-dark)','var(--feedback-info-bg)')} onClick={saveMetas}>
           <Save size={13}/> Salvar metas
         </button>
         <span style={{ fontSize:11, color:'var(--text-hint)', marginLeft:8 }}>Salvo localmente no navegador</span>
@@ -396,9 +396,9 @@ export default function Configuracoes() {
               padding:'8px 16px', borderRadius:'var(--radius)',
               border:`1px solid ${periodoDefault===p.value?'var(--blue-dark)':'var(--border)'}`,
               background:periodoDefault===p.value?'var(--blue-dark)':'transparent',
-              color:periodoDefault===p.value?'#fff':'var(--text-muted)',
+              color:periodoDefault===p.value?'var(--surface-card)':'var(--text-muted)',
               fontSize:12, fontWeight:500, cursor:'pointer',
-              fontFamily:'DM Sans, sans-serif', transition:'all 0.15s',
+              fontFamily:'var(--font-sans)', transition:'all 0.15s',
             }}>{p.label}</button>
           ))}
         </div>

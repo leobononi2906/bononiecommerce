@@ -13,8 +13,8 @@ function mesInfo(iso: string) {
   const d = new Date(iso + 'T12:00:00')
   return { label: `${MESES_AB[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, sortKey: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
 }
-const COR = ['#1A3A8F','#0077CC','#00AAEE','#2563EB','#3B82F6','#60A5FA','#38BDF8','#7DD3FC','#93C5FD','#BAE0FD']
-const COR_OUTROS = '#CBD5E1'
+const COR = ['var(--blue-dark)','var(--blue-mid)','var(--cyan-500)','var(--blue-600)','var(--blue-500)','var(--blue-400)','var(--cyan-400)','var(--cyan-300)','var(--blue-300)','var(--cyan-200)']
+const COR_OUTROS = 'var(--border-strong)'
 
 export default function Vendedores() {
   const { periodo } = usePeriodo()
@@ -128,7 +128,10 @@ export default function Vendedores() {
              leadsTotal, leadsVinculados, leadsSemVinculo, conv }
   }, [ranked, leads, umbler])
 
-  const medals = ['🥇','🥈','🥉']
+  // Sem emoji (regra do design system): posição 1-3 ganha selo numerado com cor de destaque,
+  // não um ícone que substitui o número — a posição continua legível sem depender só da cor.
+  const medalBg = ['var(--feedback-warning-bg)', 'var(--surface-sunken)', 'var(--feedback-warning-bg)']
+  const medalFg = ['var(--feedback-warning-fg)', 'var(--text-muted)', 'var(--action-primary-bg)']
 
   if (lfp) return <Spinner />
 
@@ -139,7 +142,7 @@ export default function Vendedores() {
           <span style={{fontSize:11,color:'var(--text-hint)'}}>
             Atualizado às {lastRefresh.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
           </span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--blue-mid)',background:'#EFF6FF',padding:'4px 10px',borderRadius:20}}>
+          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--blue-mid)',background:'var(--feedback-info-bg)',padding:'4px 10px',borderRadius:20}}>
             <RefreshCw size={11}/> Auto 5min
           </span>
         </div>
@@ -192,20 +195,22 @@ export default function Vendedores() {
               : v.conversao >= 7  ? 'var(--amber)'
               : 'var(--red)'
             return (
-              <div key={v.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1px solid ${isTop?'var(--blue-dark)':'var(--border)'}`,background:isTop?'linear-gradient(135deg,#1A3A8F08,#0077CC10)':'var(--surface)'}}>
+              <div key={v.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1px solid ${isTop?'var(--blue-dark)':'var(--border)'}`,background:isTop?'linear-gradient(135deg,var(--blue-50),var(--cyan-50))':'var(--surface)'}}>
                 <div style={{width:32,textAlign:'center'}}>
-                  {i<3 ? <span style={{fontSize:18}}>{medals[i]}</span> : <span style={{fontSize:15,fontWeight:700,color:'var(--text-hint)'}}>{i+1}</span>}
+                  {i<3
+                    ? <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:24,height:24,borderRadius:'50%',fontSize:13,fontWeight:700,background:medalBg[i],color:medalFg[i]}}>{i+1}</span>
+                    : <span style={{fontSize:15,fontWeight:700,color:'var(--text-hint)'}}>{i+1}</span>}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:13,color:'var(--text-primary)'}}>{shortName(v.nome)}</div>
-                  <div style={{marginTop:5,height:5,background:'#F1F5F9',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{marginTop:5,height:5,background:'var(--surface-sunken)',borderRadius:3,overflow:'hidden'}}>
                     <div style={{height:'100%',width:`${pct}%`,background:isTop?'var(--blue-dark)':'var(--blue-mid)',borderRadius:3,transition:'width 0.5s ease'}}/>
                   </div>
                 </div>
                 {/* Conversão */}
                 <div style={{textAlign:'center',minWidth:80}}>
                   <div style={{fontSize:11,color:'var(--text-hint)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Conversão</div>
-                  <div style={{fontSize:15,fontWeight:700,fontFamily:'DM Mono',color:convColor}}>
+                  <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-mono)',color:convColor}}>
                     {v.conversao != null ? fmtPct(v.conversao,1) : '–'}
                   </div>
                   {v.leads > 0 && (
@@ -215,13 +220,13 @@ export default function Vendedores() {
                 {/* Devolução */}
                 <div style={{textAlign:'right',minWidth:90}}>
                   <div style={{fontSize:11,color:'var(--text-hint)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Devolução</div>
-                  <div style={{fontSize:13,fontWeight:600,fontFamily:'DM Mono',color:v.devolucao>0?'var(--red)':'var(--text-hint)'}}>
+                  <div style={{fontSize:13,fontWeight:600,fontFamily:'var(--font-mono)',color:v.devolucao>0?'var(--red)':'var(--text-hint)'}}>
                     {v.devolucao>0?'− '+fmtBRL(v.devolucao):'–'}
                   </div>
                 </div>
                 {/* Faturamento líquido */}
                 <div style={{textAlign:'right',minWidth:120}}>
-                  <div style={{fontSize:15,fontWeight:700,fontFamily:'DM Mono',color:isTop?'var(--blue-dark)':'var(--text-primary)'}}>{fmtBRL(v.liquido)}</div>
+                  <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-mono)',color:isTop?'var(--blue-dark)':'var(--text-primary)'}}>{fmtBRL(v.liquido)}</div>
                   <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{fmtNum(v.docs)} pedidos</div>
                 </div>
               </div>

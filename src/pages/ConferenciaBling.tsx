@@ -26,7 +26,7 @@ const C = {
   green: 'var(--green)', greenBg: 'var(--green-bg)', red: 'var(--red)', redBg: 'var(--red-bg)',
   amber: 'var(--amber)', amberBg: 'var(--amber-bg)', radius: 'var(--radius)', radiusLg: 'var(--radius-lg)',
 }
-const font = { fontFamily: 'DM Sans, sans-serif' }
+const font = { fontFamily: 'var(--font-sans)' }
 const numOrNull = (v: number | string | null) =>
   v === '' || v == null ? null : (isNaN(Number(v)) ? null : Number(v))
 
@@ -38,8 +38,8 @@ function envioDe(it: Item) {
 function mudaPreco(it: Item) { const { preco } = envioDe(it); return preco != null && Math.abs(preco - (it.precoBling ?? 0)) > 0.001 }
 function mudaEstoque(it: Item) { const { est } = envioDe(it); return est != null && (it.estBling == null || Math.abs(est - it.estBling) > 0.001) }
 function statusDe(it: Item) {
-  if (!it.achou) return { bg: '#EEF0F4', fg: C.hint, txt: 'Sem par' }
-  if (!it.sincronizar) return { bg: '#EEF2FF', fg: C.blueDark, txt: 'Manual' }
+  if (!it.achou) return { bg: 'var(--surface-sunken)', fg: C.hint, txt: 'Sem par' }
+  if (!it.sincronizar) return { bg: 'var(--indigo-50)', fg: C.blueDark, txt: 'Manual' }
   const p = mudaPreco(it), e = mudaEstoque(it)
   if (p && e) return { bg: C.redBg, fg: C.red, txt: 'Preço+Estoque' }
   if (p) return { bg: C.amberBg, fg: C.amber, txt: 'Preço difere' }
@@ -134,7 +134,7 @@ export default function ConferenciaBling() {
     }}>{label}</button>
   )
 
-  const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: C.blueDark, color: '#fff', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', position: 'sticky', top: 0, whiteSpace: 'nowrap', ...font }
+  const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: C.blueDark, color: 'var(--surface-card)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', position: 'sticky', top: 0, whiteSpace: 'nowrap', ...font }
   const td: React.CSSProperties = { padding: '8px 12px', borderBottom: `1px solid ${C.border}`, fontSize: 13, whiteSpace: 'nowrap', ...font }
   const tdNum: React.CSSProperties = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }
   const inp: React.CSSProperties = { width: 92, border: `1px solid ${C.border}`, borderRadius: 7, padding: '4px 7px', fontSize: 12.5, textAlign: 'right', ...font }
@@ -150,14 +150,14 @@ export default function ConferenciaBling() {
         </div>
         <button onClick={carregando ? () => { pararRef.current = true } : carregar} style={{
           display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: C.radius, border: 'none',
-          background: carregando ? C.amber : C.blueMid, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', ...font,
+          background: carregando ? C.amber : C.blueMid, color: 'var(--surface-card)', fontWeight: 700, fontSize: 13, cursor: 'pointer', ...font,
         }}>
           {carregando ? <><Square size={14} /> Parar (pág. {paginas})</> : <><RefreshCw size={14} /> Carregar / Atualizar</>}
         </button>
       </div>
 
       {erro && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.redBg, color: C.red, border: '1px solid #F5C2C2', borderRadius: C.radius, padding: '11px 14px', marginBottom: 14, fontSize: 13 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.redBg, color: C.red, border: '1px solid var(--feedback-danger-border)', borderRadius: C.radius, padding: '11px 14px', marginBottom: 14, fontSize: 13 }}>
           <AlertTriangle size={15} /> {erro}
         </div>
       )}
@@ -172,7 +172,7 @@ export default function ConferenciaBling() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ display: 'inline-flex', background: '#F1F5F9', border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 3, gap: 2 }}>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-sunken)', border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 3, gap: 2 }}>
           {segBtn('todos', 'Todos')}{segBtn('divergentes', 'Divergentes')}{segBtn('preco', 'Preço')}{segBtn('estoque', 'Estoque')}{segBtn('manual', 'Manuais')}{segBtn('nao', 'Sem par')}
         </div>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
@@ -208,7 +208,7 @@ export default function ConferenciaBling() {
                   <td style={{ ...td, textAlign: 'center' }}>
                     <input type="checkbox" disabled={!it.achou} checked={it.sincronizar}
                       onChange={e => patch(it.id_bling, { sincronizar: e.target.checked }, true)}
-                      style={{ width: 16, height: 16, cursor: it.achou ? 'pointer' : 'default', accentColor: '#1A3A8F' }} />
+                      style={{ width: 16, height: 16, cursor: it.achou ? 'pointer' : 'default', accentColor: 'var(--blue-dark)' }} />
                   </td>
                   <td style={{ ...td, fontWeight: 700, color: C.blueDark }}>
                     {it.sku || '—'}{salvo === it.id_produto && <Check size={13} color={'var(--green)'} style={{ marginLeft: 6, verticalAlign: 'middle' }} />}

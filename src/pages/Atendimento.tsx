@@ -109,8 +109,8 @@ export default function Atendimento() {
             <CardTitle>Funil de atendimento</CardTitle>
             {lmeta ? <Spinner /> : (
               <div style={{ marginTop: 8 }}>
-                <FunnelBar label="Impressões" value={totalImpress} total={totalImpress} color="#E2E8F0" />
-                <FunnelBar label="Cliques" value={totalCliques} total={totalImpress} color="#93C5FD" />
+                <FunnelBar label="Impressões" value={totalImpress} total={totalImpress} color="var(--border-default)" />
+                <FunnelBar label="Cliques" value={totalCliques} total={totalImpress} color="var(--blue-300)" />
                 <FunnelBar label="Leads WA" value={totalLeadsMeta} total={totalImpress} color="var(--blue-mid)" />
                 <FunnelBar label="Atendidos" value={totalLeads} total={totalImpress} color="var(--blue-dark)" />
               </div>
@@ -144,19 +144,19 @@ export default function Atendimento() {
                     <tr key={i} style={{ borderBottom: i < tempoVendedor.length-1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '7px 6px', fontWeight: 500 }}>{v.nome}</td>
                       <td style={{ padding: '7px 6px' }}>{fmtNum(v.total)}</td>
-                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600, color: v.mediana > 60 ? 'var(--red)' : v.mediana > 15 ? 'var(--amber)' : 'var(--green)' }}>{fmtMinutes(v.mediana)}</td>
-                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', color:'var(--text-muted)' }}>{fmtMinutes(v.media)}</td>
-                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>{fmtMinutes(v.min)}</td>
-                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>{fmtMinutes(v.max)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: v.mediana > 60 ? 'var(--red)' : v.mediana > 15 ? 'var(--amber)' : 'var(--green)' }}>{fmtMinutes(v.mediana)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)', color:'var(--text-muted)' }}>{fmtMinutes(v.media)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{fmtMinutes(v.min)}</td>
+                      <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{fmtMinutes(v.max)}</td>
                       <td style={{ padding: '7px 6px', textAlign: 'right' }}><Badge value={`${v.pct5.toFixed(0)}%`} type={v.pct5 >= 50 ? 'ok' : 'warn'} /></td>
                       <td style={{ padding: '7px 6px', textAlign: 'right' }}><Badge value={`${v.pct15.toFixed(0)}%`} type="neutral" /></td>
                       <td style={{ padding: '7px 6px', textAlign: 'right' }}><Badge value={`${v.pctAcima.toFixed(0)}%`} type={v.pctAcima > 50 ? 'err' : v.pctAcima > 25 ? 'warn' : 'ok'} /></td>
                     </tr>
                   ))}
-                  <tr style={{ background: '#F8FAFC' }}>
+                  <tr style={{ background: 'var(--surface-subtle)' }}>
                     <td style={{ padding: '7px 6px', fontWeight: 700, fontSize: 12 }}>Mediana geral</td>
                     <td style={{ padding: '7px 6px', fontWeight: 600 }}>{fmtNum(tempoVendedor.reduce((s,v) => s+v.total,0))}</td>
-                    <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtMinutes(medianaGeral)}</td>
+                    <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtMinutes(medianaGeral)}</td>
                     <td colSpan={6} />
                   </tr>
                 </tbody>
@@ -181,7 +181,7 @@ export default function Atendimento() {
               {heatmap[dow].map((val, col) => {
                 const intensity = val / heatMax
                 const bg = val === 0
-                  ? '#F1F5F9'
+                  ? 'var(--surface-sunken)'
                   : `rgba(26, 58, 143, ${0.1 + intensity * 0.9})`
                 return (
                   <div key={col} title={`${DIAS[dow]} ${col}h — ${val} leads`} style={{

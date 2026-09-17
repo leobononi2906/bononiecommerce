@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { usePeriodo } from '../components/layout/AppShell'
 import { useCampaignVerdicts, useSubgroupAnalysis, useCampaignDetails, useMetaAdsMensal } from '../hooks/use-campaigns'
@@ -51,8 +52,9 @@ export default function Campanhas() {
       <AvisoFalhaDeCarga fontes={fontes} />
 
       {mesParcial && (
-        <div style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid #FCE3B0', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
-          📅 Mês em andamento — dados parciais de {diaAtual}/{diasNoMes} dias. Os números crescem ao longo do mês; use o filtro de período para comparar com meses fechados.
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--feedback-warning-border)', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
+          <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
+          <span>Mês em andamento — dados parciais de {diaAtual}/{diasNoMes} dias. Os números crescem ao longo do mês; use o filtro de período para comparar com meses fechados.</span>
         </div>
       )}
 

@@ -3,9 +3,9 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fmtBRL, fmtPct } from '../../lib/fmt'
 import type { SubgroupAnalysis } from '../../types/campaigns'
 
-const font = { fontFamily: 'DM Sans, sans-serif' }
-const mono = { fontFamily: 'DM Mono, monospace' }
-const th: React.CSSProperties = { textAlign: 'right', padding: '8px 10px', background: 'var(--blue-dark)', color: '#fff', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap', ...font }
+const font = { fontFamily: 'var(--font-sans)' }
+const mono = { fontFamily: 'var(--font-mono)' }
+const th: React.CSSProperties = { textAlign: 'right', padding: '8px 10px', background: 'var(--blue-dark)', color: 'var(--surface-card)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap', ...font }
 const td: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid var(--border)', fontSize: 13, ...font }
 const tdM: React.CSSProperties = { ...td, textAlign: 'right', fontWeight: 600, ...mono }
 
@@ -45,9 +45,9 @@ export default function SubgroupTable({ data }: Props) {
             const pctOk = r.pctInvestFat >= 4 && r.pctInvestFat <= 7
             const roasOk = r.roas >= 3
             return (
-              <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : '#FAFBFC', borderBottom: '1px solid var(--border)' }}>
+              <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                 <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
-                  <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 20, background: '#EFF6FF', color: 'var(--blue-dark)' }}>{r.subgrupo}</span>
+                  <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 20, background: 'var(--feedback-info-bg)', color: 'var(--blue-dark)' }}>{r.subgrupo}</span>
                   <span style={{ fontSize: 11, color: 'var(--text-hint)', marginLeft: 8 }}>{r.campanhas} campanha(s)</span>
                 </td>
                 <td style={tdM}>{fmtBRL(r.investimento)}</td>
@@ -58,7 +58,7 @@ export default function SubgroupTable({ data }: Props) {
               </tr>
             )
           })}
-          <tr style={{ background: '#EFF6FF', borderTop: '2px solid var(--border)' }}>
+          <tr style={{ background: 'var(--feedback-info-bg)', borderTop: '2px solid var(--border)' }}>
             <td style={{ ...td, fontWeight: 700, color: 'var(--blue-dark)' }}>Total</td>
             <td style={{ ...tdM, fontWeight: 700 }}>{fmtBRL(totalInvest)}</td>
             <td style={{ ...tdM, fontWeight: 700, fontSize: 15, color: 'var(--blue-dark)' }}>{fmtBRL(totalFat)}</td>

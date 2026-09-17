@@ -14,7 +14,7 @@ interface Props {
 
 export function PeriodSelector({ value, onChange }: Props) {
   return (
-    <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', padding: 3, borderRadius: 'var(--radius)' }}>
+    <div style={{ display: 'flex', gap: 4, background: 'var(--surface-sunken)', padding: 3, borderRadius: 'var(--radius)' }}>
       {OPTIONS.map(o => (
         <button
           key={o.value}
@@ -30,7 +30,7 @@ export function PeriodSelector({ value, onChange }: Props) {
             color: value === o.value ? 'var(--blue-dark)' : 'var(--text-muted)',
             boxShadow: value === o.value ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
             transition: 'all 0.15s',
-            fontFamily: 'DM Sans, sans-serif',
+            fontFamily: 'var(--font-sans)',
           }}
         >
           {o.label}
@@ -84,10 +84,10 @@ export function FunnelBar({ label, value, total, color = 'var(--blue-mid)' }: {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
       <div style={{ width: 90, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>{label}</div>
-      <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 3, height: 16, overflow: 'hidden' }}>
+      <div style={{ flex: 1, background: 'var(--surface-sunken)', borderRadius: 3, height: 16, overflow: 'hidden' }}>
         <div style={{ height: '100%', background: color, borderRadius: 3, width: `${pct}%`, transition: 'width 0.4s ease' }} />
       </div>
-      <div style={{ width: 52, fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
+      <div style={{ width: 52, fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
         {value.toLocaleString('pt-BR')}
       </div>
     </div>

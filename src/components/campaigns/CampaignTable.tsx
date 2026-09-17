@@ -5,8 +5,8 @@ import type { CampaignAnalysis, CampaignVerdict } from '../../types/campaigns'
 import type { CampaignDetail } from '../../hooks/use-campaigns'
 import SparklineCell from './SparklineCell'
 
-const font = { fontFamily: 'DM Sans, sans-serif' }
-const mono = { fontFamily: 'DM Mono, monospace' }
+const font = { fontFamily: 'var(--font-sans)' }
+const mono = { fontFamily: 'var(--font-mono)' }
 
 function normCamp(name: string): string {
   return name.replace(/\s*\[PAUSADA\]\s*/g, ' ').replace(/\s+/g, ' ').trim()
@@ -14,7 +14,7 @@ function normCamp(name: string): string {
 
 const VC: Record<CampaignVerdict, { bg: string; fg: string; icon: React.ReactNode }> = {
   ESCALAR:   { bg: 'var(--green-bg)', fg: 'var(--green)', icon: <TrendingUp size={11} /> },
-  MANTER:    { bg: '#EFF6FF',         fg: 'var(--blue-dark)', icon: <Eye size={11} /> },
+  MANTER:    { bg: 'var(--feedback-info-bg)',         fg: 'var(--blue-dark)', icon: <Eye size={11} /> },
   MONITORAR: { bg: 'var(--amber-bg)', fg: 'var(--amber)', icon: <AlertTriangle size={11} /> },
   PAUSAR:    { bg: 'var(--red-bg)',   fg: 'var(--red)', icon: <Pause size={11} /> },
 }
@@ -27,7 +27,7 @@ interface Props {
   summary: { total: number; escalar: number; manter: number; monitorar: number; pausar: number }
 }
 
-const th: React.CSSProperties = { textAlign: 'right', padding: '8px 10px', background: 'var(--blue-dark)', color: '#fff', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap', ...font }
+const th: React.CSSProperties = { textAlign: 'right', padding: '8px 10px', background: 'var(--blue-dark)', color: 'var(--surface-card)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap', ...font }
 const td: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid var(--border)', fontSize: 13, ...font }
 const tdM: React.CSSProperties = { ...td, textAlign: 'right', fontWeight: 600, ...mono }
 
@@ -63,7 +63,7 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--surface)', overflow: 'hidden' }}>
       {/* Alerta urgente */}
       {urgentes.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'var(--red-bg)', borderBottom: '1px solid #FECACA', fontSize: 13, fontWeight: 600, color: 'var(--red)', ...font }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'var(--red-bg)', borderBottom: '1px solid var(--feedback-danger-border)', fontSize: 13, fontWeight: 600, color: 'var(--red)', ...font }}>
           <AlertTriangle size={14} />
           {urgentes.length} campanha{urgentes.length > 1 ? 's' : ''} queimando dinheiro — {urgentes.map(c => c.shortName).join(', ')}
         </div>
@@ -98,7 +98,7 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
             </button>
           )}
           {/* Filtros de veredicto */}
-          <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
+          <div style={{ display: 'flex', gap: 2, background: 'var(--surface-sunken)', padding: 3, borderRadius: 8 }}>
             {FILTERS.map(f => (
               <button key={f} onClick={() => setFilter(f)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: filter === f ? 'var(--surface)' : 'transparent', color: filter === f ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: filter === f ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', ...font }}>
                 {f === 'TODOS' ? 'Todos' : f.charAt(0) + f.slice(1).toLowerCase()}
@@ -134,7 +134,7 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
               const barW = (c.spend / maxSpend) * 100
               const isOpen = expanded.has(c.campanha)
               const has = details.some(d => normCamp(d.campanha) === normCamp(c.campanha))
-              const rowBg = c.isPaused ? '#FAFBFC' : c.verdict === 'PAUSAR' ? 'var(--red-bg)' : undefined
+              const rowBg = c.isPaused ? 'var(--surface-subtle)' : c.verdict === 'PAUSAR' ? 'var(--red-bg)' : undefined
 
               return (
                 <React.Fragment key={c.campanha}>
@@ -145,14 +145,14 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
                     <td style={{ ...td, textAlign: 'left', maxWidth: 220 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 500, opacity: c.isPaused ? 0.6 : 1 }}>{c.shortName}</span>
-                        {c.isPaused && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#F1F5F9', color: 'var(--text-hint)' }}>PAUSADA</span>}
+                        {c.isPaused && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--surface-sunken)', color: 'var(--text-hint)' }}>PAUSADA</span>}
                       </div>
                       {c.subgrupos.length > 0 && (
                         <div style={{ marginTop: 2, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                          {c.subgrupos.map(s => <span key={s} style={{ fontSize: 10, fontWeight: 600, padding: '0 6px', borderRadius: 20, background: '#EFF6FF', color: 'var(--blue-dark)' }}>{s}</span>)}
+                          {c.subgrupos.map(s => <span key={s} style={{ fontSize: 10, fontWeight: 600, padding: '0 6px', borderRadius: 20, background: 'var(--feedback-info-bg)', color: 'var(--blue-dark)' }}>{s}</span>)}
                         </div>
                       )}
-                      <div style={{ height: 3, marginTop: 4, borderRadius: 3, background: '#F1F5F9', overflow: 'hidden' }}>
+                      <div style={{ height: 3, marginTop: 4, borderRadius: 3, background: 'var(--surface-sunken)', overflow: 'hidden' }}>
                         <div style={{ height: '100%', borderRadius: 3, width: `${barW}%`, background: vc.fg, opacity: 0.4 }} />
                       </div>
                     </td>
@@ -172,7 +172,7 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
                   {/* Expanded rows */}
                   {isOpen && getDetails(c.campanha).map(([cj, d]) => (
                     <React.Fragment key={`${c.campanha}|${cj}`}>
-                      <tr style={{ background: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
+                      <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                         <td style={td}></td>
                         <td style={{ ...td, textAlign: 'left', paddingLeft: 24, fontSize: 12, fontWeight: 600, color: 'var(--blue-dark)' }}>{cj.replace(/\[[\d\/]+\]\s*/g, '').trim()}</td>
                         <td style={{ ...tdM, fontSize: 12, color: 'var(--text-hint)' }}>–</td>
@@ -183,14 +183,14 @@ export default function CampaignTable({ campaigns, details, summary }: Props) {
                         <td colSpan={4} style={td}></td>
                       </tr>
                       {d.ans.map((an, ai) => (
-                        <tr key={`${c.campanha}|${cj}|${ai}`} style={{ background: '#FAFBFC', borderBottom: '1px solid var(--border)' }}>
+                        <tr key={`${c.campanha}|${cj}|${ai}`} style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                           <td style={td}></td>
                           <td style={{ ...td, textAlign: 'left', paddingLeft: 40, fontSize: 11, color: 'var(--text-muted)' }}>{an.anuncio.replace(/\[[\d\/]+\]\s*/g, '').trim()}</td>
                           <td style={{ ...tdM, fontSize: 11, color: 'var(--text-hint)' }}>–</td>
                           <td style={{ ...tdM, fontSize: 11 }}>{fmtNum(an.leads)}</td>
-                          <td style={{ ...tdM, fontSize: 11, color: an.vendas > 0 ? 'var(--text-primary)' : '#CBD5E1' }}>{an.vendas || '–'}</td>
-                          <td style={{ ...tdM, fontSize: 10, color: an.conversao_perc >= 1 ? 'var(--green)' : an.conversao_perc > 0 ? 'var(--amber)' : '#CBD5E1' }}>{an.conversao_perc > 0 ? `${an.conversao_perc.toFixed(1)}%` : '0%'}</td>
-                          <td style={{ ...tdM, fontSize: 11, color: an.faturamento > 0 ? 'var(--blue-dark)' : '#CBD5E1' }}>{an.faturamento > 0 ? fmtBRL(an.faturamento) : '–'}</td>
+                          <td style={{ ...tdM, fontSize: 11, color: an.vendas > 0 ? 'var(--text-primary)' : 'var(--border-strong)' }}>{an.vendas || '–'}</td>
+                          <td style={{ ...tdM, fontSize: 10, color: an.conversao_perc >= 1 ? 'var(--green)' : an.conversao_perc > 0 ? 'var(--amber)' : 'var(--border-strong)' }}>{an.conversao_perc > 0 ? `${an.conversao_perc.toFixed(1)}%` : '0%'}</td>
+                          <td style={{ ...tdM, fontSize: 11, color: an.faturamento > 0 ? 'var(--blue-dark)' : 'var(--border-strong)' }}>{an.faturamento > 0 ? fmtBRL(an.faturamento) : '–'}</td>
                           <td colSpan={4} style={td}></td>
                         </tr>
                       ))}

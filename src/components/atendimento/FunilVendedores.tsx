@@ -156,7 +156,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
     whiteSpace: 'nowrap',
   }
   const td: React.CSSProperties = {
-    padding: '8px', textAlign: 'right', fontFamily: 'DM Mono, monospace',
+    padding: '8px', textAlign: 'right', fontFamily: 'var(--font-mono)',
     fontSize: 12.5, whiteSpace: 'nowrap',
   }
 
@@ -198,7 +198,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                       title="Trocar a etiqueta que alimenta esta coluna"
                       style={{
                         marginTop: 4, maxWidth: 118, width: '100%',
-                        fontSize: 10, fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 10, fontFamily: 'var(--font-sans)',
                         color: 'var(--text-muted)', background: 'var(--bg)',
                         border: '1px solid var(--border)', borderRadius: 6,
                         padding: '2px 4px', textTransform: 'none', letterSpacing: 0,
@@ -226,7 +226,7 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                 const idx = l.interessados ? (l.vendas / l.interessados) * 100 : 0
                 return (
                   <tr key={i} style={{ borderBottom: i < linhasVis.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <td style={{ ...td, textAlign: 'left', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
+                    <td style={{ ...td, textAlign: 'left', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                       {l.vendedor}
                     </td>
                     <td style={td}>{fmtNum(l.atendimentos)}</td>
@@ -247,8 +247,8 @@ export default function FunilVendedores({ periodo }: { periodo: Periodo }) {
                   </tr>
                 )
               })}
-              <tr style={{ background: '#F8FAFC' }}>
-                <td style={{ ...td, textAlign: 'left', fontFamily: 'DM Sans, sans-serif', fontWeight: 700 }}>TOTAL</td>
+              <tr style={{ background: 'var(--surface-subtle)' }}>
+                <td style={{ ...td, textAlign: 'left', fontFamily: 'var(--font-sans)', fontWeight: 700 }}>TOTAL</td>
                 <td style={{ ...td, fontWeight: 700 }}>{fmtNum(totais.atendimentos)}</td>
                 {cfgs.map(c => (
                   <td key={c.coluna_key} style={{ ...td, fontWeight: 700 }}>{fmtNum(totais.porColuna[c.coluna_key] || 0)}</td>

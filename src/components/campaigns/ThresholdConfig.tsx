@@ -3,8 +3,8 @@ import { Save, RotateCcw } from 'lucide-react'
 import { getDefaults, type CampaignThresholds } from '../../lib/thresholds'
 import { useThresholds } from '../../hooks/use-thresholds'
 
-const font = { fontFamily: 'DM Sans, sans-serif' }
-const inp: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontFamily: 'DM Mono, monospace' }
+const font = { fontFamily: 'var(--font-sans)' }
+const inp: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontFamily: 'var(--font-mono)' }
 
 const FIELDS: { key: keyof CampaignThresholds; label: string; suffix: string }[] = [
   { key: 'roas_green',          label: 'ROAS bom (verde)',           suffix: 'x' },
@@ -61,7 +61,7 @@ export default function ThresholdConfig() {
       </div>
       {msg && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', marginBottom: 8, ...font }}>{msg}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={handleSave} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius)', border: '1px solid var(--blue-dark)', background: '#EFF6FF', color: 'var(--blue-dark)', fontSize: 12, fontWeight: 600, cursor: 'pointer', ...font }}>
+        <button onClick={handleSave} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius)', border: '1px solid var(--blue-dark)', background: 'var(--feedback-info-bg)', color: 'var(--blue-dark)', fontSize: 12, fontWeight: 600, cursor: 'pointer', ...font }}>
           <Save size={13} /> Salvar limiares
         </button>
         <button onClick={handleReset} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, cursor: 'pointer', ...font }}>

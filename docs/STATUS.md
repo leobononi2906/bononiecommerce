@@ -8,6 +8,7 @@
 |---|---|---|
 | `docs/META_CAPI_E_RELATORIOS.md` (01/09) | guia do Meta: atribuição, relatórios de campanha e CAPI — inclui o handoff do repoint do Tintim, a regra de leitura da conversão e o estado do CAPI | antes de mexer em ROAS, CAC, atribuição ou em qualquer número que venha do Meta Ads |
 | `docs/sql/2026-09-17_preflight_vw_ecom_docs_datas.sql` + `2026-09-17_ensaio_aceite_vw_ecom_docs_datas.sql` | pré-voo e teste de aceite da view `vw_ecom_docs_datas` (data de criação do pedido a nível de documento) | antes de mexer em `use-faturamento.ts` ou em qualquer card que compare "faturado" com "pedido feito" |
+| `docs/2026-09-17-design-system.md` | receituário do design system Stonni interno aplicado (tokens, ponte, o que ficou de fora) | antes de mexer em cor/fonte/medida em qualquer tela, ou antes de criar tela nova |
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
@@ -16,7 +17,8 @@ Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), mar
 - **Clone real (git):** `C:\Aplicações da bononi\bononiecommerce` (remote `leobononi2906/bononiecommerce`, branch `main`). Confirmado em 17/09/2026 — `temp_clone` em `C:\CLAUDE\...` mencionado aqui antes **não existe mais**; esta é a única pasta. **SEMPRE `git fetch` antes** (tem sessão paralela commitando na main).
 - **Deploy:** https://bononiecommerce.vercel.app · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (tabelas/views `ecom_*`, intake `umbler_*`).
-- **Stack:** React/Vite com **inline styles + CSS vars próprias** (`--blue-dark`, `--green`…), **NÃO Tailwind**. Hooks em `src/hooks/`.
+- **Stack:** React/Vite com **inline styles + CSS vars próprias** (`--blue-dark`, `--green`…), **NÃO Tailwind** (o `@import "tailwindcss"` foi removido do `index.css` em 17/09 — não fazia nada, nenhuma classe utilitária era usada). Hooks em `src/hooks/`.
+- **Design system:** Stonni interno, aplicado em 17/09/2026 — ver `docs/2026-09-17-design-system.md`. Tokens em `src/ds/stonni-ds.css` (não editar à mão), ponte em `src/index.css`.
 
 ## Fluxo de dados (Umbler)
 Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-intake` → `Ecomm_UMBLER` v83 (downstream fino, só cria `ecom_leads`/`ecom_leads_fila_bot`). Raw vive em `umbler_eventos.payload`. Funil de conversão = `ecom_atd_funil` (cron `ecom-atd-refresh`, jobid 45) cruzando contato Umbler × faturamento ERP por `bononi_telefone_key`.
@@ -52,6 +54,14 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-17 (4) — **Design system Stonni interno aplicado no app inteiro.** Pedido do Leo. Detalhe completo em `docs/2026-09-17-design-system.md`; resumo aqui:
+  - Cor primária: azul genérico `#0077CC` → azul da marca `#1A74C4`; cartão em destaque: navy `#1A3A8F` → índigo `#16103D` (mesmo tom da navegação, quando a Home ganhar uma).
+  - Tipografia: DM Sans/DM Mono → Archivo (título/KPI) + IBM Plex Sans (corpo/UI) + IBM Plex Mono (identificador/número).
+  - **Emoji removido** (regra do pacote, sem exceção): 📅 nos 3 banners de "mês em andamento" virou ícone `Calendar` (lucide-react); 🥇🥈🥉 do ranking de Vendedores virou selo numerado com cor — sem depender só da cor, o número continua visível.
+  - **Zero hex fora de `ds/`** (eram ~150) e **zero medida fora da escala de 4px** nos CSS soltos — confirmado pelo `auditar-tokens.py`, as 5 checagens de falha silenciosa passam.
+  - **Achado pela própria auditoria antes de publicar:** `--text-hint`, usado em dezenas de lugares no app, não existe com esse nome no DS (lá é `--text-subtle`) — na primeira versão da ponte ficou sem tradução, o que teria deixado todo texto "apagado" da tela com uma cor inválida, sem erro nenhum no console. Corrigido antes do teste local.
+  - **Fora desta passada, registrado no doc:** `fontSize`/`lineHeight` dentro de `style=` inline (200+ pontos) continuam número literal — é o mesmo tipo de trabalho que a medida de espaçamento foi, só que maior; convertê-los fica pendente. `tailwindcss` saiu do `index.css` (não fazia nada) mas a dependência continua no `package.json`.
+  - Testado local (banco de teste): Home, Vendedores, Marketplace e Configurações renderizam sem erro, valores batendo com antes da mudança — é troca de cor/fonte, não de dado.
 - 2026-09-17 (3) — **"Devolução externa" e "Total ONLINE líquido" podiam mostrar "− R$ 0,00" em vez de carregando.** Pedido do Leo: conferir se os 3 cards de "Líquido após devolução externa" batem. Bateram na aritmética (R$1.467.245,93 − R$29.851,51 = R$1.437.394,42, produção, mês atual) — mas na leitura do código os dois cards usavam o `loading` do **faturamento** (`lfp`), nunca o da própria devolução (`useDevolucaoPeriodo`, que nem era desestruturado). Se a devolução demorar mais que o faturamento (paginam separado), a tela mostrava o valor final zerado como se fosse definitivo, mesma família do "0min" de 16/09. `Home.tsx`: `ldp` desestruturado e usado nos dois cards e no `sub` da taxa. Sem mudança de número, só de estado de carregamento.
   - **Achado na mesma investigação, registrado mas NÃO corrigido — ver Pendências:** "Faturamento Site" (fix de hoje mais cedo) só enxerga pedido **já faturado**, então o mês corrente nasce estruturalmente menor e cresce conforme o ERP fatura (setembro por data do pedido: 3 docs/R$16.263,92; agosto, já maduro, pela mesma regra: 26 docs/R$24.032,86). A comparação "vs anterior" do card de Site (e do bruto/líquido que o somam) está enviesada pra baixo o mês inteiro por causa disso — não é erro de conta, é a régua sendo curta no mês corrente.
 - 2026-09-17 (2) — **Nenhum valor da aplicação abrevia mais (k/M).** Pedido do Leo: tudo por extenso.

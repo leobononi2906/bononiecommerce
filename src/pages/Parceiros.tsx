@@ -47,18 +47,18 @@ const C = {
   green:'var(--green)',greenBg:'var(--green-bg)',red:'var(--red)',redBg:'var(--red-bg)',
   amber:'var(--amber)',amberBg:'var(--amber-bg)',radius:'var(--radius)',radiusLg:'var(--radius-lg)',
 }
-const font = { fontFamily:'DM Sans, sans-serif' }
+const font = { fontFamily:'var(--font-sans)' }
 
 const STATUS_COR: Record<string,{bg:string;fg:string}> = {
   'Ativo':       {bg:'var(--green-bg)',  fg:'var(--green)'},
   'Negociando':  {bg:'var(--amber-bg)',  fg:'var(--amber)'},
-  'Pausado':     {bg:'#EEF0F4',          fg:'var(--text-hint)'},
+  'Pausado':     {bg:'var(--surface-sunken)',          fg:'var(--text-hint)'},
   'Encerrado':   {bg:'var(--red-bg)',    fg:'var(--red)'},
 }
 const CANAIS    = ['Instagram','YouTube','TikTok','Blog','Podcast','Outro']
 const TIPOS     = ['Permuta','Comissão %','Cachê fixo','Misto']
 const STATUS    = ['Ativo','Negociando','Pausado','Encerrado']
-const inp:React.CSSProperties = {border:`1px solid var(--border)`,borderRadius:7,padding:'7px 10px',fontSize:13,width:'100%',fontFamily:'DM Sans, sans-serif'}
+const inp:React.CSSProperties = {border:`1px solid var(--border)`,borderRadius:7,padding:'7px 10px',fontSize:13,width:'100%',fontFamily:'var(--font-sans)'}
 
 /** Rótulo curto de um acordo para o chip do card: "Varejo · 10%", "Atacado · R$ 500", "Permuta". */
 function resumoAcordo(a: Acordo): string {
@@ -108,7 +108,7 @@ function ListaSelect({value,onChange,itens,onCriado,tabela,rotulo,artigo='o'}:{
 
   return(
     <div ref={ref} style={{position:'relative'}}>
-      <div onClick={()=>setAberto(v=>!v)} style={{...inp,display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:'#fff'}}>
+      <div onClick={()=>setAberto(v=>!v)} style={{...inp,display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:'var(--surface-card)'}}>
         <span style={{color:atual?C.txt:C.hint,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{atual?.nome??`Selecione ${artigo} ${rotulo}…`}</span>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {value&&<button onClick={e=>{e.stopPropagation();onChange(null)}} style={{border:'none',background:'transparent',cursor:'pointer',color:C.hint,padding:0,lineHeight:1}}><X size={12}/></button>}
@@ -116,13 +116,13 @@ function ListaSelect({value,onChange,itens,onCriado,tabela,rotulo,artigo='o'}:{
         </div>
       </div>
       {aberto&&(
-        <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,background:'#fff',border:`1px solid ${C.border}`,borderRadius:C.radius,zIndex:50,boxShadow:'0 8px 24px rgba(0,0,0,0.12)',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,background:'var(--surface-card)',border:`1px solid ${C.border}`,borderRadius:C.radius,zIndex:50,boxShadow:'0 8px 24px rgba(0,0,0,0.12)',overflow:'hidden'}}>
           <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`}}>
             <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder={`Buscar ou criar ${rotulo}…`} style={{...inp,padding:'5px 8px',fontSize:12}}/>
           </div>
           <div style={{maxHeight:180,overflowY:'auto'}}>
             {filtrados.map(n=>(
-              <div key={n.id} onClick={()=>{onChange(n.id);setAberto(false);setQ('')}} style={{padding:'9px 12px',cursor:'pointer',fontSize:13,fontFamily:'DM Sans,sans-serif',background:n.id===value?'#EFF6FF':'transparent'}}>
+              <div key={n.id} onClick={()=>{onChange(n.id);setAberto(false);setQ('')}} style={{padding:'9px 12px',cursor:'pointer',fontSize:13,fontFamily:'var(--font-sans)',background:n.id===value?'var(--feedback-info-bg)':'transparent'}}>
                 {n.nome}
               </div>
             ))}
@@ -131,7 +131,7 @@ function ListaSelect({value,onChange,itens,onCriado,tabela,rotulo,artigo='o'}:{
                 {criando
                   ?<div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <span style={{fontSize:12,color:C.muted,...font}}>Criar "<strong>{q}</strong>"?</span>
-                    <button onClick={criar} style={{padding:'3px 10px',borderRadius:6,border:'none',background:C.blueMid,color:'#fff',fontSize:12,cursor:'pointer',...font}}>Criar</button>
+                    <button onClick={criar} style={{padding:'3px 10px',borderRadius:6,border:'none',background:C.blueMid,color:'var(--surface-card)',fontSize:12,cursor:'pointer',...font}}>Criar</button>
                     <button onClick={()=>setCriando(false)} style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:12,cursor:'pointer',...font}}>Cancelar</button>
                   </div>
                   :<button onClick={()=>setCriando(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:6,border:`1px dashed ${C.blueMid}`,background:'transparent',color:C.blueMid,fontSize:12,cursor:'pointer',...font}}>
@@ -251,12 +251,12 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
 
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:200,display:'flex',justifyContent:'flex-end'}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div className="parc-drawer" style={{width:520,maxWidth:'100vw',background:'#fff',height:'100%',overflowY:'auto',boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
+      <div className="parc-drawer" style={{width:520,maxWidth:'100vw',background:'var(--surface-card)',height:'100%',overflowY:'auto',boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
         {/* Header drawer */}
-        <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#fff',zIndex:1}}>
+        <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'var(--surface-card)',zIndex:1}}>
           <div style={{fontSize:16,fontWeight:700,color:C.blueDark,...font}}>{isNovo?'Novo Parceiro':form.nome||'Parceiro'}</div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={salvar} disabled={salvando||!form.nome} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',opacity:!form.nome?0.5:1,...font}}>
+            <button onClick={salvar} disabled={salvando||!form.nome} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'var(--surface-card)',fontWeight:700,fontSize:13,cursor:'pointer',opacity:!form.nome?0.5:1,...font}}>
               <Save size={13}/> {salvando?'Salvando…':'Salvar'}
             </button>
             <button onClick={onClose} style={{padding:'8px 10px',borderRadius:C.radius,border:`1px solid ${C.border}`,background:'transparent',cursor:'pointer'}}><X size={15}/></button>
@@ -264,7 +264,7 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
         </div>
 
         {erro&&(
-          <div style={{margin:'14px 24px 0',background:C.redBg,color:C.red,border:'1px solid #FBD5D5',borderRadius:C.radius,padding:'9px 12px',fontSize:12.5,...font}}>
+          <div style={{margin:'14px 24px 0',background:C.redBg,color:C.red,border:'1px solid var(--feedback-danger-border)',borderRadius:C.radius,padding:'9px 12px',fontSize:12.5,...font}}>
             Não salvou: {erro}
           </div>
         )}
@@ -332,13 +332,13 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
             </div>
 
             {acordos.length===0
-              ?<div style={{background:'#F8FAFC',border:`1px dashed ${C.border}`,borderRadius:C.radius,padding:'18px 14px',textAlign:'center',fontSize:12.5,color:C.muted,...font}}>
+              ?<div style={{background:'var(--surface-subtle)',border:`1px dashed ${C.border}`,borderRadius:C.radius,padding:'18px 14px',textAlign:'center',fontSize:12.5,color:C.muted,...font}}>
                 Nenhum acordo ainda. Use "Adicionar acordo" — um por modalidade,
                 se a comissão for diferente no Varejo e no Atacado.
               </div>
               :<div style={{display:'grid',gap:12}}>
                 {acordos.map((a,i)=>(
-                  <div key={a.id} style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:C.radius,padding:14}}>
+                  <div key={a.id} style={{background:'var(--surface-subtle)',border:`1px solid ${C.border}`,borderRadius:C.radius,padding:14}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                       <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:'.4px',...font}}>Acordo {i+1}</div>
                       <button onClick={()=>removeAcordo(a.id)} title="Remover acordo" style={{border:'none',background:'transparent',cursor:'pointer',color:C.hint,padding:0,lineHeight:1}}>
@@ -386,11 +386,11 @@ function Drawer({parceiro,nichos,modalidades,onNichoCreated,onModalidadeCreated,
             <div style={{borderTop:`1px solid ${C.border}`,paddingTop:16}}>
               <div style={{fontSize:12,fontWeight:700,color:C.blueDark,marginBottom:12,...font}}>Histórico de Followups</div>
               {/* novo followup */}
-              <div style={{background:'#F8FAFC',borderRadius:C.radius,padding:14,marginBottom:14}}>
+              <div style={{background:'var(--surface-subtle)',borderRadius:C.radius,padding:14,marginBottom:14}}>
                 <div style={{display:'grid',gap:8}}>
                   <input value={novaFU.responsavel} onChange={e=>setNovaFU(f=>({...f,responsavel:e.target.value}))} placeholder="Seu nome" style={inp}/>
                   <textarea value={novaFU.nota} onChange={e=>setNovaFU(f=>({...f,nota:e.target.value}))} placeholder="O que foi combinado, resultado da conversa…" rows={2} style={{...inp,resize:'vertical'}}/>
-                  <button onClick={addFollowup} disabled={!novaFU.responsavel||!novaFU.nota} style={{padding:'8px 14px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',opacity:(!novaFU.responsavel||!novaFU.nota)?0.5:1,...font}}>
+                  <button onClick={addFollowup} disabled={!novaFU.responsavel||!novaFU.nota} style={{padding:'8px 14px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'var(--surface-card)',fontWeight:700,fontSize:12,cursor:'pointer',opacity:(!novaFU.responsavel||!novaFU.nota)?0.5:1,...font}}>
                     + Registrar followup
                   </button>
                 </div>
@@ -482,7 +482,7 @@ export default function Parceiros() {
           <button onClick={carregar} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:C.radius,border:`1px solid ${C.border}`,background:C.surface,color:C.txt,fontSize:13,cursor:'pointer',...font}}>
             <RefreshCw size={13}/>
           </button>
-          <button onClick={()=>setDrawer(null)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',...font}}>
+          <button onClick={()=>setDrawer(null)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:C.radius,border:'none',background:C.blueMid,color:'var(--surface-card)',fontWeight:700,fontSize:13,cursor:'pointer',...font}}>
             <Plus size={14}/> Novo Parceiro
           </button>
         </div>
@@ -504,7 +504,7 @@ export default function Parceiros() {
           <Search size={14} style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',color:C.hint}}/>
           <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, @ ou nicho…" style={{...inp,paddingLeft:32}}/>
         </div>
-        <div style={{display:'inline-flex',background:'#F1F5F9',border:`1px solid ${C.border}`,borderRadius:C.radius,padding:3,gap:2}}>
+        <div style={{display:'inline-flex',background:'var(--surface-sunken)',border:`1px solid ${C.border}`,borderRadius:C.radius,padding:3,gap:2}}>
           {['Todos',...STATUS].map(s=>(
             <button key={s} onClick={()=>setFiltroStatus(s)} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',fontSize:12.5,fontWeight:600,background:filtroStatus===s?C.surface:'transparent',color:filtroStatus===s?C.blueDark:C.muted,boxShadow:filtroStatus===s?'0 1px 3px rgba(0,0,0,0.08)':'none',...font}}>{s}</button>
           ))}
@@ -521,7 +521,7 @@ export default function Parceiros() {
           </div>
           :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14}}>
             {lista.map(p=>{
-              const st=STATUS_COR[p.status]??{bg:'#EEF0F4',fg:C.hint}
+              const st=STATUS_COR[p.status]??{bg:'var(--surface-sunken)',fg:C.hint}
               const fim=fimMaisProximo(p.acordos)
               const vencendo=fim&&new Date(fim)<new Date(Date.now()+30*86400000)&&p.status==='Ativo'
               return(
@@ -536,14 +536,14 @@ export default function Parceiros() {
                     <span style={{background:st.bg,color:st.fg,fontSize:11,fontWeight:700,padding:'3px 9px',borderRadius:20,flexShrink:0,...font}}>{p.status}</span>
                   </div>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-                    {p.nicho_nome&&<span style={{background:'#EEF2FF',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>{p.nicho_nome}</span>}
-                    {p.seguidores&&<span style={{background:'#F1F5F9',color:C.muted,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}><Users size={10}/> {p.seguidores.toLocaleString('pt-BR')}</span>}
+                    {p.nicho_nome&&<span style={{background:'var(--indigo-50)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>{p.nicho_nome}</span>}
+                    {p.seguidores&&<span style={{background:'var(--surface-sunken)',color:C.muted,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}><Users size={10}/> {p.seguidores.toLocaleString('pt-BR')}</span>}
                   </div>
                   {/* um chip por acordo — é o que deixa "Varejo 10% / Atacado 5%" visível sem abrir */}
                   {(p.acordos?.length??0)>0&&(
                     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
                       {p.acordos!.map(a=>(
-                        <span key={a.id} style={{background:'#EEF2FF',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>
+                        <span key={a.id} style={{background:'var(--indigo-50)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>
                           {resumoAcordo(a)}
                         </span>
                       ))}

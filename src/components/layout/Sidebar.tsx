@@ -37,7 +37,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div style={{ padding: collapsed ? '16px 0' : '16px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, justifyContent: collapsed ? 'center' : 'flex-start' }}>
         <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Snowflake size={14} color="#fff" />
+          <Snowflake size={14} color="var(--surface-card)" />
         </div>
         {!collapsed && <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--blue-dark)' }}>Stonni</div><div style={{ fontSize: 10, color: 'var(--text-hint)' }}>Ecommerce</div></div>}
       </div>
@@ -55,11 +55,11 @@ export default function Sidebar() {
                 padding: collapsed ? '9px 0' : isSub ? '7px 14px 7px 28px' : '9px 14px',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 textDecoration: 'none',
-                background: isActive ? '#EFF6FF' : 'transparent',
+                background: isActive ? 'var(--feedback-info-bg)' : 'transparent',
                 color: isActive ? 'var(--blue-dark)' : 'var(--text-muted)',
                 fontSize: isSub ? 12 : 13,
                 fontWeight: isActive ? 600 : 400,
-                fontFamily: 'DM Sans, sans-serif',
+                fontFamily: 'var(--font-sans)',
                 borderLeft: isActive ? '3px solid var(--blue-dark)' : '3px solid transparent',
                 transition: 'all 0.15s',
               })}>

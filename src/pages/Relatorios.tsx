@@ -28,7 +28,7 @@ function mesLabel(ym: string): string {
 
 const INPUT: React.CSSProperties = {
   padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-  fontSize: 13, fontFamily: 'DM Sans, sans-serif', color: 'var(--text-primary)',
+  fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text-primary)',
   background: 'var(--surface)', outline: 'none',
 }
 const LABEL: React.CSSProperties = { fontSize: 11, color: 'var(--text-hint)', display: 'block', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' }
@@ -217,7 +217,7 @@ export default function Relatorios() {
 
   const th: React.CSSProperties = { textAlign: 'right', padding: '7px 10px', fontSize: 11, color: 'var(--text-hint)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', whiteSpace: 'nowrap' }
   const thL: React.CSSProperties = { ...th, textAlign: 'left' }
-  const td: React.CSSProperties = { padding: '8px 10px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }
+  const td: React.CSSProperties = { padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }
 
   return (
     <div style={{ padding: '20px 24px', maxWidth: 1400 }}>
@@ -237,7 +237,7 @@ export default function Relatorios() {
           <div style={{ display: 'flex', gap: 6 }}>
             {[['mes', 'Mês atual'], ['mespassado', 'Mês passado'], ['ano', 'Este ano']].map(([k, l]) => (
               <button key={k} onClick={() => preset(k as any)}
-                style={{ padding: '7px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)', fontFamily: 'DM Sans, sans-serif' }}>{l}</button>
+                style={{ padding: '7px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>{l}</button>
             ))}
           </div>
         </div>
@@ -312,14 +312,14 @@ export default function Relatorios() {
 
       {/* ── AGRUPAMENTO + EXPORT ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-        <div style={{ display: 'flex', gap: 3, background: '#F1F5F9', padding: 3, borderRadius: 8 }}>
+        <div style={{ display: 'flex', gap: 3, background: 'var(--surface-sunken)', padding: 3, borderRadius: 8 }}>
           {([['produto', 'Por produto'], ['vendedor', 'Por vendedor'], ['mes', 'Por mês']] as const).map(([v, l]) => (
             <button key={v} onClick={() => setGroupBy(v)}
-              style={{ padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: groupBy === v ? 'var(--surface)' : 'transparent', color: groupBy === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: groupBy === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'DM Sans, sans-serif' }}>{l}</button>
+              style={{ padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: groupBy === v ? 'var(--surface)' : 'transparent', color: groupBy === v ? 'var(--blue-dark)' : 'var(--text-muted)', boxShadow: groupBy === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', fontFamily: 'var(--font-sans)' }}>{l}</button>
           ))}
         </div>
         <button onClick={exportarCSV} disabled={litens || linhas.length === 0}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--green)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: litens || linhas.length === 0 ? 'not-allowed' : 'pointer', opacity: litens || linhas.length === 0 ? 0.5 : 1, fontFamily: 'DM Sans, sans-serif' }}>
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--green)', color: 'var(--surface-card)', fontWeight: 700, fontSize: 13, cursor: litens || linhas.length === 0 ? 'not-allowed' : 'pointer', opacity: litens || linhas.length === 0 ? 0.5 : 1, fontFamily: 'var(--font-sans)' }}>
           <FileSpreadsheet size={15} /> Exportar CSV (Excel)
         </button>
       </div>
@@ -364,7 +364,7 @@ export default function Relatorios() {
                   <tr key={l.chave} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 10px', maxWidth: 320 }}>
                       <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={l.nome}>{l.nome}</div>
-                      {l.extra && <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: groupBy === 'produto' ? 'DM Mono, monospace' : 'DM Sans, sans-serif' }}>{l.extra}</div>}
+                      {l.extra && <div style={{ fontSize: 11, color: 'var(--text-hint)', fontFamily: groupBy === 'produto' ? 'var(--font-mono)' : 'var(--font-sans)' }}>{l.extra}</div>}
                     </td>
                     <td style={td}>{fmtNum(l.qtd)}</td>
                     <td style={td}>{fmtBRL(l.fat)}</td>
@@ -374,7 +374,7 @@ export default function Relatorios() {
                     <td style={{ ...td, color: 'var(--text-muted)' }}>{fmtNum(l.pedidos)}</td>
                   </tr>
                 ))}
-                <tr style={{ background: '#F8FAFC' }}>
+                <tr style={{ background: 'var(--surface-subtle)' }}>
                   <td style={{ padding: '8px 10px', fontWeight: 700 }}>TOTAL</td>
                   <td style={{ ...td, fontWeight: 700 }}>{fmtNum(totais.qtd)}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{fmtBRL(totais.fat)}</td>

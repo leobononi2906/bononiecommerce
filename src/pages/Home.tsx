@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { Calendar } from 'lucide-react'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
@@ -17,13 +18,13 @@ function TooltipVendedores({ active, payload, label }: any) {
   const itens = payload.filter((p:any) => (p.value||0) > 0).sort((a:any,b:any)=> b.value - a.value)
   if (!itens.length) return null
   return (
-    <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:12,boxShadow:'0 4px 16px rgba(15,29,53,.14)',minWidth:170}}>
+    <div style={{background:'var(--surface-card)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:12,boxShadow:'0 4px 16px rgba(15,29,53,.14)',minWidth:170}}>
       <div style={{fontWeight:700,marginBottom:5}}>{label}</div>
       {itens.map((p:any)=>(
         <div key={p.dataKey} style={{display:'flex',alignItems:'center',gap:6,margin:'3px 0'}}>
           <span style={{width:9,height:9,borderRadius:2,background:p.color,display:'inline-block',flexShrink:0}}/>
           <span style={{flex:1,whiteSpace:'nowrap'}}>{p.dataKey}</span>
-          <span style={{fontFamily:'DM Mono',fontWeight:600,marginLeft:10}}>{fmtBRL(p.value)}</span>
+          <span style={{fontFamily:'var(--font-mono)',fontWeight:600,marginLeft:10}}>{fmtBRL(p.value)}</span>
         </div>
       ))}
     </div>
@@ -236,8 +237,8 @@ export default function Home() {
     return rows
   }, [fat6, dev6])
 
-  const COLORS = ['#1A3A8F','#0077CC','#00AAEE','#2563EB','#3B82F6','#60A5FA','#38BDF8','#93C5FD']
-  const COR_OUTROS = '#CBD5E1'
+  const COLORS = ['var(--blue-dark)','var(--blue-mid)','var(--cyan-500)','var(--blue-600)','var(--blue-500)','var(--blue-400)','var(--cyan-400)','var(--blue-300)']
+  const COR_OUTROS = 'var(--border-strong)'
 
   const hoje = new Date()
   const diaAtual = hoje.getDate()
@@ -249,8 +250,9 @@ export default function Home() {
       <PageHeader title="Visão Geral" />
 
       {mesParcial && !lfp && (
-        <div style={{ background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid #FCE3B0', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
-          📅 Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--feedback-warning-border)', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
+          <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
+          <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
         </div>
       )}
 
@@ -348,7 +350,7 @@ export default function Home() {
                 <tr key={i} style={{borderBottom:i<topVend.length-1?'1px solid var(--border)':'none'}}>
                   <td style={{padding:'6px 6px',color:'var(--text-hint)',fontSize:11}}>{i+1}</td>
                   <td style={{padding:'6px 6px',fontWeight:500}}>{v.nome}</td>
-                  <td style={{padding:'6px 6px',textAlign:'right',fontFamily:'DM Mono',fontSize:12}}>{fmtBRL(v.fat)}</td>
+                  <td style={{padding:'6px 6px',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:12}}>{fmtBRL(v.fat)}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -402,12 +404,12 @@ export default function Home() {
               {fat6Depto.map((r,i)=>(
                 <tr key={i} style={{borderBottom:i<fat6Depto.length-1?'1px solid var(--border)':'none'}}>
                   <td style={{padding:'7px 8px',fontWeight:500}}>{r.mes}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Vendedores)}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Marketplace)}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.Site)}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono'}}>{fmtBRL(r.total)}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono',color:r.devolucao>0?'var(--red)':'var(--text-hint)'}}>{r.devolucao>0?'− '+fmtBRL(r.devolucao):'–'}</td>
-                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'DM Mono',fontWeight:600,color:'var(--blue-dark)'}}>{fmtBRL(r.liquido)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)'}}>{fmtBRL(r.Vendedores)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)'}}>{fmtBRL(r.Marketplace)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)'}}>{fmtBRL(r.Site)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)'}}>{fmtBRL(r.total)}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)',color:r.devolucao>0?'var(--red)':'var(--text-hint)'}}>{r.devolucao>0?'− '+fmtBRL(r.devolucao):'–'}</td>
+                  <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--blue-dark)'}}>{fmtBRL(r.liquido)}</td>
                 </tr>
               ))}
             </tbody>
