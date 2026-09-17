@@ -50,7 +50,7 @@ export default function Home() {
   const { data: siteP,   loading: lsp,  error: esp,   reload: rsp }   = useFaturamentoSitePeriodo(periodo)
   const { data: siteAnt,             error: esant, reload: rsant }  = useFaturamentoSitePeriodoAnterior(periodo)
   const { data: dev6,                error: ed6,   reload: rd6 }   = useDevolucao6Meses()
-  const { data: devP,                error: edp,   reload: rdp }   = useDevolucaoPeriodo(periodo)
+  const { data: devP,   loading: ldp, error: edp,   reload: rdp }   = useDevolucaoPeriodo(periodo)
   const { data: devAnt,              error: edant, reload: rdant } = useDevolucaoPeriodoAnterior(periodo)
   const { data: subs,   loading: lsub, error: esub,  reload: rsub }  = useSubgrupos(periodo)
   const { data: leads,  loading: ll,   error: eleads, reload: rleads } = useLeads(periodo)
@@ -282,10 +282,10 @@ export default function Home() {
       <KpiGrid cols={3}>
         <KpiCard label="Total ONLINE (bruto)"   value={kpiValor(efp||esp, lfp||lsp, fmtBRL(canais.total))}
           {...((lfp||lsp)||eTotalAnt?{}:cmp(canais.total, canaisAnt.total))} />
-        <KpiCard label="Devolução externa"       value={kpiValor(edp, lfp, '− '+fmtBRL(devol.total))}
-          sub={lfp||eTotal?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
-        <KpiCard label="Total ONLINE líquido"    value={kpiValor(eTotal, lfp||lsp, fmtBRL(liq.total))} highlight
-          {...((lfp||lsp)||eTotal||eTotalAnt?{}:cmp(liq.total, liqAnt.total))} />
+        <KpiCard label="Devolução externa"       value={kpiValor(edp, ldp, '− '+fmtBRL(devol.total))}
+          sub={ldp||eTotal?undefined:`${taxaDev.toFixed(1)}% do bruto`} trend={devol.total>0?'down':'neutral'} />
+        <KpiCard label="Total ONLINE líquido"    value={kpiValor(eTotal, lfp||lsp||ldp, fmtBRL(liq.total))} highlight
+          {...((lfp||lsp||ldp)||eTotal||eTotalAnt?{}:cmp(liq.total, liqAnt.total))} />
       </KpiGrid>
 
       <SectionLabel>Tráfego — retorno sobre investimento <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— o tráfego (Meta Ads) alimenta vendas do site E dos vendedores (fechadas por WhatsApp); ROAS/CAC = (site + vendedores) ÷ investimento em tráfego, período selecionado</span></SectionLabel>
