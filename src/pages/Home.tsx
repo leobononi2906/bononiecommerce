@@ -319,13 +319,16 @@ export default function Home() {
         { nome: 'Meta Ads',                error: emeta,  reload: rmeta },
       ]} />
 
-      <SectionLabel>Faturamento por canal — período selecionado</SectionLabel>
+      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa</span></SectionLabel>
       <KpiGrid cols={3}>
         <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp, lfp, fmtBRL(canais.vendedor))} highlight
+          liquido={(lfp||edp)?undefined:fmtBRL(liq.vendedor)}
           {...(lfp||eTotalAnt?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
         <KpiCard label="Faturamento Site"         value={kpiValor(esp, lsp, fmtBRL(canais.site))}
+          liquido={(lsp||edp)?undefined:fmtBRL(liq.site)}
           {...(lsp||eTotalAnt?{}:cmp(canais.site, canaisAnt.site))} />
         <KpiCard label="Faturamento Marketplace"  value={kpiValor(emktTotal, lmktTotal, fmtBRL(canais.marketplace))}
+          liquido={(lmktTotal||edp)?undefined:fmtBRL(liq.marketplace)}
           {...(lmktTotal||eTotalAnt?{}:cmp(canais.marketplace, canaisAnt.marketplace))} />
       </KpiGrid>
 

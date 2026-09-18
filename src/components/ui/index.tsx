@@ -8,9 +8,11 @@ interface KpiCardProps {
   trend?: 'up' | 'down' | 'neutral'
   icon?: React.ReactNode
   highlight?: boolean
+  /** Segunda linha, entre o valor principal e o "vs anterior" — para mostrar o líquido junto do bruto sem trocar o valor principal do card. */
+  liquido?: string
 }
 
-export function KpiCard({ label, value, sub, trend, icon, highlight }: KpiCardProps) {
+export function KpiCard({ label, value, sub, trend, icon, highlight, liquido }: KpiCardProps) {
   return (
     <div style={{
       background: highlight ? 'var(--blue-dark)' : 'var(--surface)',
@@ -30,6 +32,11 @@ export function KpiCard({ label, value, sub, trend, icon, highlight }: KpiCardPr
       <span style={{ fontSize: 22, fontWeight: 600, color: highlight ? 'var(--surface-card)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
         {value}
       </span>
+      {liquido && (
+        <span style={{ fontSize: 12, color: highlight ? 'var(--blue-300)' : 'var(--text-muted)' }}>
+          líquido: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: highlight ? 'var(--surface-card)' : 'var(--text-primary)' }}>{liquido}</span>
+        </span>
+      )}
       {sub && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {trend === 'up' && <TrendingUp size={12} color="var(--green)" />}
