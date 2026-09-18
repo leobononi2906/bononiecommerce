@@ -5,7 +5,7 @@ import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnter
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
   useMarketplaceCanais, useMktCanais,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
-  useSubgrupos, useLeads, useMetaAds, getCanal, getPeriodRange, diasComPedidoRepresado } from '../hooks/useData'
+  useSubgrupos, useLeads, useMetaAds, useUmblerVendedores, getCanal, getPeriodRange, diasComPedidoRepresado } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
@@ -65,10 +65,21 @@ export default function Home() {
   const { data: subs,   loading: lsub, error: esub,  reload: rsub }  = useSubgrupos(periodo)
   const { data: leads,  loading: ll,   error: eleads, reload: rleads } = useLeads(periodo)
   const { data: metaAds, loading: lmeta, error: emeta, reload: rmeta } = useMetaAds(periodo)
+  const { data: umbler } = useUmblerVendedores()
 
   // Um KPI que soma bruto e devolução só é confiável se todas as cargas vieram.
   const eTotal = efp || edp || esp || emktTotal
   const eTotalAnt = efant || edant || esant || emktTotal
+
+  // Vendedores de e-commerce (varejo) de fato: vínculo Umbler↔ERP ativo e não-interno.
+  // Sem isso, canal "vendedor" (default de getCanal para quem não é site/marketplace) somava
+  // vendedor de ATACADO e gente que já saiu — nenhum dos dois tem vínculo aqui (achado 18/09,
+  // ver docs/STATUS.md e o mesmo fix em Vendedores.tsx).
+  const erpAtivos = useMemo(() => {
+    const s = new Set<string>()
+    ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) s.add(String(u.id_vendedor_erp)) })
+    return s
+  }, [umbler])
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -78,7 +89,7 @@ export default function Home() {
       const canal = getCanal(r.nome_vendedor||'')
       if (canal==='marketplace') marketplace+=f
       else if (canal==='site') site+=f
-      else vendedor+=f
+      else if (erpAtivos.has(String(r.id_vendedor))) vendedor+=f
     })
     return { vendedor, site, marketplace, total: vendedor+site+marketplace }
   }
@@ -90,12 +101,12 @@ export default function Home() {
       const canal = getCanal(r.nome_vendedor||'')
       if (canal==='marketplace') marketplace+=v
       else if (canal==='site') site+=v
-      else vendedor+=v
+      else if (erpAtivos.has(String(r.id_vendedor))) vendedor+=v
     })
     return { vendedor, site, marketplace, total: vendedor+site+marketplace }
   }
-  const canaisBruto    = useMemo(() => somaCanais(fatP),   [fatP])
-  const canaisAntBruto = useMemo(() => somaCanais(fatAnt), [fatAnt])
+  const canaisBruto    = useMemo(() => somaCanais(fatP),   [fatP, erpAtivos])
+  const canaisAntBruto = useMemo(() => somaCanais(fatAnt), [fatAnt, erpAtivos])
   // Site pela data do pedido substitui o site "por data de faturamento" nos dois; vendedor e
   // marketplace continuam como estavam (não fizeram parte desta correção — ver escopo em
   // docs/STATUS.md 17/09/2026).
@@ -105,8 +116,8 @@ export default function Home() {
   const mktRealAnt = mkt?.totalAnt ?? 0
   const canais    = { ...canaisBruto, site: siteReal, marketplace: mktReal, total: canaisBruto.vendedor + siteReal + mktReal }
   const canaisAnt = { ...canaisAntBruto, site: siteRealAnt, marketplace: mktRealAnt, total: canaisAntBruto.vendedor + siteRealAnt + mktRealAnt }
-  const devol     = useMemo(() => somaDevolucao(devP),   [devP])
-  const devolAnt  = useMemo(() => somaDevolucao(devAnt), [devAnt])
+  const devol     = useMemo(() => somaDevolucao(devP),   [devP, erpAtivos])
+  const devolAnt  = useMemo(() => somaDevolucao(devAnt), [devAnt, erpAtivos])
   // Faturamento líquido = bruto − devolução externa
   const liq       = { vendedor: canais.vendedor-devol.vendedor, site: canais.site-devol.site,
                       marketplace: canais.marketplace-devol.marketplace, total: canais.total-devol.total }
@@ -131,13 +142,15 @@ export default function Home() {
     const investimento = (metaAds||[]).reduce((s,r:any)=>s+r.investimento,0)
     const receita = canais.site + canais.vendedor
     let pedidos = (siteP||[]).length
-    ;(fatP||[]).forEach((r:any) => { if (getCanal(r.nome_vendedor||'')==='vendedor') pedidos++ })
+    ;(fatP||[]).forEach((r:any) => {
+      if (getCanal(r.nome_vendedor||'')==='vendedor' && erpAtivos.has(String(r.id_vendedor))) pedidos++
+    })
     return {
       investimento, receita, pedidos,
       roas: investimento>0 ? receita/investimento : 0,
       cac: investimento>0 && pedidos>0 ? investimento/pedidos : 0,
     }
-  }, [metaAds, canais.site, canais.vendedor, fatP, siteP])
+  }, [metaAds, canais.site, canais.vendedor, fatP, siteP, erpAtivos])
 
   // Quantos dias do período JÁ ACONTECERAM mas ainda não têm carga de Meta Ads.
   // ROAS e CAC dividem receita do período inteiro por investimento só até o último dia carregado:

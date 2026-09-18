@@ -8,7 +8,7 @@ import type { Periodo } from '../types'
 // Atribuição temporal = data_devolucao (mês em que a devolução ocorreu / competência do retorno).
 // Fonte: public.vw_ecom_devolucao_externa.
 // `id` entra no select como chave de ordenação da paginação (ver `buscarTudo`).
-const DEV_COLS = 'id,nome_vendedor,valor_total,data_devolucao'
+const DEV_COLS = 'id,id_vendedor,nome_vendedor,valor_total,data_devolucao'
 
 async function fetchDevolucao(start: string, end: string) {
   return buscarTudo<any>((de, ate) => supabase
