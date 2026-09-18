@@ -53,7 +53,7 @@ export default function Vendedores() {
   }, [fat6])
 
   useEffect(() => {
-    const t = setInterval(() => { setLastRefresh(new Date()); window.location.reload() }, 5*60*1000)
+    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rdp(); rleads(); rumbler(); rf6() }, 5*60*1000)
     return () => clearInterval(t)
   }, [])
 
@@ -64,6 +64,16 @@ export default function Vendedores() {
       m.set(String(u.id_vendedor_erp), u.id_membro_umbler)
     })
     return m
+  }, [umbler])
+
+  // Vendedores de e-commerce (varejo) de fato: vínculo Umbler↔ERP ativo e não-interno.
+  // Sem isso, faturamento_doc classificado como canal "vendedor" por getCanal() (que é o
+  // default de quem não é site/marketplace) trazia vendedor de ATACADO e gente que já saiu —
+  // nenhum dos dois tem vínculo aqui, e nem deveria: entram no ERP mas não são "vendedor e-commerce".
+  const erpAtivos = useMemo(() => {
+    const s = new Set<string>()
+    ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) s.add(String(u.id_vendedor_erp)) })
+    return s
   }, [umbler])
 
   // Leads por id_membro_umbler no período
@@ -94,6 +104,7 @@ export default function Vendedores() {
     fatP.forEach((r:any) => {
       if (getCanal(r.nome_vendedor||'') !== 'vendedor') return
       const k = String(r.id_vendedor)
+      if (!erpAtivos.has(k)) return
       const c = map.get(k)||{nome:r.nome_vendedor,fat:0,docs:0,id:k}
       c.fat  += Number(r.faturamento_doc)
       c.docs++
@@ -108,7 +119,7 @@ export default function Vendedores() {
         return { ...v, leads: leadsCount, conversao, devolucao, liquido: v.fat - devolucao }
       })
       .sort((a,b) => b.liquido - a.liquido)
-  }, [fatP, erpToUmbler, leadsPorUmbler, devPorVendedor])
+  }, [fatP, erpAtivos, erpToUmbler, leadsPorUmbler, devPorVendedor])
 
   const maxFat = ranked[0]?.liquido ?? 1
 

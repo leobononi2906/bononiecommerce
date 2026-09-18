@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 import { Calendar } from 'lucide-react'
 import { Outlet, useLocation } from 'react-router'
 import Sidebar from './Sidebar'
@@ -35,10 +35,22 @@ export function usePeriodo() {
 
 export default function AppShell() {
   const [periodo, setPeriodo] = useState<Periodo>(() => {
+    const atual = localStorage.getItem('stonni_periodo_atual')
+    if (atual) {
+      try {
+        const p = JSON.parse(atual)
+        if (p && p.tipo === 'personalizado' && p.inicio && p.fim) return p as Periodo
+        if ((PERIODOS_FIXOS as string[]).includes(p)) return p as PeriodoFixo
+      } catch {}
+    }
     const salvo = localStorage.getItem('stonni_periodo_default')
     return (PERIODOS_FIXOS as string[]).includes(salvo || '') ? (salvo as PeriodoFixo) : 'mes_atual'
   })
   const isPersonalizado = typeof periodo === 'object'
+
+  useEffect(() => {
+    localStorage.setItem('stonni_periodo_atual', JSON.stringify(periodo))
+  }, [periodo])
   const [popoverAberto, setPopoverAberto] = useState(false)
   const [inicioForm, setInicioForm] = useState('')
   const [fimForm, setFimForm] = useState('')
