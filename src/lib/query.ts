@@ -70,8 +70,8 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
  *  configurado nos dois projetos — e `buscarTudo` funciona mesmo se esse teto mudar. */
 const PAGINA = 5000
 
-/** Teto de sanidade: 50 requisições (250 mil linhas). Se bater aqui, o filtro está errado —
- *  melhor estourar alto e visível do que devolver meio resultado calado. */
+/** Teto de sanidade: 50 requisições (250 mil linhas, sondagens de fim inclusas). Se bater aqui,
+ *  o filtro está errado — melhor estourar alto e visível do que devolver meio resultado calado. */
 const MAX_REQUISICOES = 50
 
 /**
@@ -90,26 +90,44 @@ const MAX_REQUISICOES = 50
  * O avanço é pelo que a resposta REALMENTE trouxe, não por `página × tamanho`. Assim, se o
  * servidor tiver um teto por requisição menor que `PAGINA` (o projeto de teste já esteve com
  * 1.000), a busca continua correta em vez de parar achando que acabou.
+ *
+ * Uma página mais curta que `PAGINA` (inclusive vazia) só é aceita como fim depois de uma
+ * SONDAGEM de 1 linha bem no ponto onde a busca parou. Achado em 21/09/2026: sob carga
+ * concorrente (duas sessões batendo no mesmo Supabase de produção), a MESMA consulta trouxe
+ * 566 linhas, depois 1129, antes do valor real de 7066 — o Supabase/PostgREST truncou a página
+ * sob contenção, sem erro nenhum (`data` não-nulo, só menos linha que o pedido). Sem a
+ * sondagem, "página curta" e "acabaram os dados" eram a mesma coisa; com ela, achar a linha
+ * seguinte prova que a página anterior foi truncada — em vez de perder o resto, ela entra no
+ * total e a busca volta a paginar normalmente a partir dali. Ver docs/STATUS.md (21/09/2026).
  */
 export async function buscarTudo<T>(
   paginar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: any }>,
 ): Promise<T[]> {
   const tudo: T[] = []
   let de = 0
-  let maiorLote = 0
+  let requisicoes = 0
 
-  for (let i = 0; i < MAX_REQUISICOES; i++) {
+  while (requisicoes < MAX_REQUISICOES) {
+    requisicoes++
     const { data, error } = await paginar(de, de + PAGINA - 1)
     if (error) throw error
     const lote = data ?? []
     tudo.push(...lote)
-
-    if (!lote.length) return tudo
-    // Veio menos do que o servidor já provou que entrega → acabaram os dados.
-    // (Na primeira volta maiorLote ainda é 0, então não corta cedo por engano.)
-    if (lote.length < maiorLote) return tudo
-    maiorLote = Math.max(maiorLote, lote.length)
     de += lote.length
+
+    if (lote.length === PAGINA) continue   // página cheia: pode ter mais, segue paginando
+
+    // Página curta ou vazia — sonda 1 linha no ponto exato onde paramos antes de confiar que
+    // acabou. Achar linha aqui prova truncamento: junta a linha sondada e deixa o laço de fora
+    // buscar a próxima página normalmente a partir dela, em vez de perder o resto calado.
+    if (requisicoes >= MAX_REQUISICOES) break
+    requisicoes++
+    const sonda = await paginar(de, de)
+    if (sonda.error) throw sonda.error
+    const linhaSonda = sonda.data ?? []
+    if (!linhaSonda.length) return tudo
+    tudo.push(...linhaSonda)
+    de += linhaSonda.length
   }
   throw new Error(
     `buscarTudo: passou de ${MAX_REQUISICOES} requisições (${tudo.length} linhas). ` +
