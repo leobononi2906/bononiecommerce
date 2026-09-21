@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { Calendar, Clock } from 'lucide-react'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  useFaturamentoVendedorSemNotaPeriodo, useFaturamentoVendedorSemNotaPeriodoAnterior,
   useMarketplaceCanais, useMktCanais,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
   useSubgrupos, useLeads, useMetaAds, useUmblerVendedores, getCanal, getPeriodRange, diasComPedidoRepresado } from '../hooks/useData'
@@ -66,10 +67,12 @@ export default function Home() {
   const { data: leads,  loading: ll,   error: eleads, reload: rleads } = useLeads(periodo)
   const { data: metaAds, loading: lmeta, error: emeta, reload: rmeta } = useMetaAds(periodo)
   const { data: umbler } = useUmblerVendedores()
+  const { data: vsfP,   error: evsfp,   reload: rvsfp }   = useFaturamentoVendedorSemNotaPeriodo(periodo)
+  const { data: vsfAnt, error: evsfant, reload: rvsfant } = useFaturamentoVendedorSemNotaPeriodoAnterior(periodo)
 
   // Um KPI que soma bruto e devolução só é confiável se todas as cargas vieram.
-  const eTotal = efp || edp || esp || emktTotal
-  const eTotalAnt = efant || edant || esant || emktTotal
+  const eTotal = efp || edp || esp || emktTotal || evsfp
+  const eTotalAnt = efant || edant || esant || emktTotal || evsfant
 
   // Vendedores de e-commerce (varejo) de fato: vínculo Umbler↔ERP ativo e não-interno.
   // Sem isso, canal "vendedor" (default de getCanal para quem não é site/marketplace) somava
@@ -80,6 +83,26 @@ export default function Home() {
     ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) s.add(String(u.id_vendedor_erp)) })
     return s
   }, [umbler])
+
+  // Nome de exibição por id — `vw_vendas_sem_faturamento` às vezes traz "(sem vendedor)" mesmo
+  // com vínculo Umbler↔ERP ativo (achado 21/09/2026, id 85193/MAYKELL); usa o nome cadastrado
+  // no vínculo quando a linha não tem um nome de verdade.
+  const nomeAtivoPorId = useMemo(() => {
+    const m = new Map<string,string>()
+    ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) m.set(String(u.id_vendedor_erp), u.nome_vendedor_erp) })
+    return m
+  }, [umbler])
+
+  // Vendedor: soma o já faturado com o finalizado no SGA que ainda não tem nota (pedido do Leo,
+  // 21/09/2026) — Site e Marketplace não entram aqui, só a parte "vendedor".
+  const fatPVend = useMemo(() => [
+    ...(fatP||[]),
+    ...(vsfP||[]).map((r:any) => ({ ...r, nome_vendedor: nomeAtivoPorId.get(String(r.id_vendedor)) || r.nome_vendedor })),
+  ], [fatP, vsfP, nomeAtivoPorId])
+  const fatAntVend = useMemo(() => [
+    ...(fatAnt||[]),
+    ...(vsfAnt||[]).map((r:any) => ({ ...r, nome_vendedor: nomeAtivoPorId.get(String(r.id_vendedor)) || r.nome_vendedor })),
+  ], [fatAnt, vsfAnt, nomeAtivoPorId])
 
   // Soma faturamento bruto por canal
   function somaCanais(rows: any[] | null) {
@@ -105,8 +128,8 @@ export default function Home() {
     })
     return { vendedor, site, marketplace, total: vendedor+site+marketplace }
   }
-  const canaisBruto    = useMemo(() => somaCanais(fatP),   [fatP, erpAtivos])
-  const canaisAntBruto = useMemo(() => somaCanais(fatAnt), [fatAnt, erpAtivos])
+  const canaisBruto    = useMemo(() => somaCanais(fatPVend),   [fatPVend, erpAtivos])
+  const canaisAntBruto = useMemo(() => somaCanais(fatAntVend), [fatAntVend, erpAtivos])
   // Site pela data do pedido substitui o site "por data de faturamento" nos dois; vendedor e
   // marketplace continuam como estavam (não fizeram parte desta correção — ver escopo em
   // docs/STATUS.md 17/09/2026).
@@ -308,6 +331,8 @@ export default function Home() {
       <AvisoFalhaDeCarga fontes={[
         { nome: 'Faturamento do período',  error: efp,    reload: rfp },
         { nome: 'Faturamento do período anterior', error: efant, reload: rfant },
+        { nome: 'Vendedor finalizado sem nota', error: evsfp, reload: rvsfp },
+        { nome: 'Vendedor finalizado sem nota (anterior)', error: evsfant, reload: rvsfant },
         { nome: 'Faturamento do site (data do pedido)', error: esp, reload: rsp },
         { nome: 'Faturamento do site anterior (data do pedido)', error: esant, reload: rsant },
         { nome: 'Faturamento do marketplace (data do pedido)', error: emkt, reload: rmkt },
@@ -321,9 +346,9 @@ export default function Home() {
         { nome: 'Meta Ads',                error: emeta,  reload: rmeta },
       ]} />
 
-      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa · Vendedores conta pela emissão da nota fiscal (SGA conta pela venda finalizada)</span></SectionLabel>
+      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa · Vendedores soma nota fiscal emitida + pedido já finalizado no SGA sem nota ainda</span></SectionLabel>
       <KpiGrid cols={3}>
-        <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp, lfp, fmtBRL(canais.vendedor))} highlight
+        <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp||evsfp, lfp, fmtBRL(canais.vendedor))} highlight
           liquido={(lfp||edp)?undefined:fmtBRL(liq.vendedor)}
           {...(lfp||eTotalAnt?{}:cmp(canais.vendedor, canaisAnt.vendedor))} />
         <KpiCard label="Faturamento Site"         value={kpiValor(esp, lsp, fmtBRL(canais.site))}

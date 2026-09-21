@@ -5,6 +5,7 @@ export { useQuery, getPeriodRange, getPreviousPeriodRange, periodoLabel, periodo
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses,
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  useFaturamentoVendedorSemNotaPeriodo, useFaturamentoVendedorSemNotaPeriodoAnterior,
   comDataDePedido } from './use-faturamento'
 export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses, useDevolucaoPorVendedorPeriodo, useDevolucaoItens } from './use-devolucao'
 export type { DevItemRaw } from './use-devolucao'

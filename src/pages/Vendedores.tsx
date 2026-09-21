@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamentoPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
+import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
@@ -19,6 +19,7 @@ const COR_OUTROS = 'var(--border-strong)'
 export default function Vendedores() {
   const { periodo } = usePeriodo()
   const { data: fatP,    loading: lfp,  error: efp,    reload: rfp    } = useFaturamentoPeriodo(periodo)
+  const { data: vsfP,                  error: evsfp,  reload: rvsfp  } = useFaturamentoVendedorSemNotaPeriodo(periodo)
   const { data: fat6,    loading: lf6,  error: ef6,    reload: rf6    } = useFaturamento6Meses()
   const { data: devP,                 error: edp,    reload: rdp    } = useDevolucaoPorVendedorPeriodo(periodo)
   const { data: leads,                error: eleads, reload: rleads } = useLeads(periodo)
@@ -53,7 +54,7 @@ export default function Vendedores() {
   }, [fat6])
 
   useEffect(() => {
-    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rdp(); rleads(); rumbler(); rf6() }, 5*60*1000)
+    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rvsfp(); rdp(); rleads(); rumbler(); rf6() }, 5*60*1000)
     return () => clearInterval(t)
   }, [])
 
@@ -75,6 +76,22 @@ export default function Vendedores() {
     ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) s.add(String(u.id_vendedor_erp)) })
     return s
   }, [umbler])
+
+  // Nome de exibição por id — `vw_vendas_sem_faturamento` às vezes traz "(sem vendedor)" mesmo
+  // com vínculo Umbler↔ERP ativo (achado 21/09/2026, id 85193/MAYKELL); usa o nome cadastrado
+  // no vínculo quando a linha não tem um nome de verdade. Mesmo tratamento de Home.tsx.
+  const nomeAtivoPorId = useMemo(() => {
+    const m = new Map<string,string>()
+    ;(umbler||[]).forEach((u:any) => { if (u.ativo && !u.interno) m.set(String(u.id_vendedor_erp), u.nome_vendedor_erp) })
+    return m
+  }, [umbler])
+
+  // Soma o já faturado com o finalizado no SGA que ainda não tem nota (pedido do Leo, 21/09/2026)
+  // — mesmo tratamento de Home.tsx, pra Home e Vendedores não divergirem de novo (ver 18/09).
+  const fatPVend = useMemo(() => [
+    ...(fatP||[]),
+    ...(vsfP||[]).map((r:any) => ({ ...r, nome_vendedor: nomeAtivoPorId.get(String(r.id_vendedor)) || r.nome_vendedor })),
+  ], [fatP, vsfP, nomeAtivoPorId])
 
   // Leads por id_membro_umbler no período
   const leadsPorUmbler = useMemo(() => {
@@ -99,9 +116,8 @@ export default function Vendedores() {
 
   // Ranking de vendedores por faturamento
   const ranked = useMemo(() => {
-    if (!fatP) return []
     const map = new Map<string,{nome:string;fat:number;docs:number;id:string}>()
-    fatP.forEach((r:any) => {
+    fatPVend.forEach((r:any) => {
       if (getCanal(r.nome_vendedor||'') !== 'vendedor') return
       const k = String(r.id_vendedor)
       if (!erpAtivos.has(k)) return
@@ -119,7 +135,7 @@ export default function Vendedores() {
         return { ...v, leads: leadsCount, conversao, devolucao, liquido: v.fat - devolucao }
       })
       .sort((a,b) => b.liquido - a.liquido)
-  }, [fatP, erpAtivos, erpToUmbler, leadsPorUmbler, devPorVendedor])
+  }, [fatPVend, erpAtivos, erpToUmbler, leadsPorUmbler, devPorVendedor])
 
   const maxFat = ranked[0]?.liquido ?? 1
 
@@ -161,6 +177,7 @@ export default function Vendedores() {
 
       <AvisoFalhaDeCarga fontes={[
         { nome: 'Faturamento',  error: efp,     reload: rfp },
+        { nome: 'Vendedor finalizado sem nota', error: evsfp, reload: rvsfp },
         { nome: 'Devolução',    error: edp,     reload: rdp },
         { nome: 'Leads',        error: eleads,  reload: rleads },
         { nome: 'Vínculos Umbler', error: eumbler, reload: rumbler },
@@ -170,9 +187,9 @@ export default function Vendedores() {
       <div style={{marginBottom:14}}>
         <AlertBanner type="warning">
           <span>
-            <strong>Faturamento aqui é contado pela emissão da nota fiscal, não pela venda.</strong>{' '}
-            O SGA conta pela venda finalizada — por isso um pedido já vendido mas ainda sem nota emitida
-            só entra neste número depois de faturado, e pode aparecer em dias diferentes nos dois sistemas.
+            <strong>Faturamento aqui soma nota fiscal emitida + pedido já finalizado no SGA que ainda não tem nota.</strong>{' '}
+            Pedido finalizado entra pela data do próprio pedido; pedido ainda "aberto" no SGA não entra até finalizar e faturar,
+            e pode aparecer em dias diferentes nos dois sistemas.
           </span>
         </AlertBanner>
       </div>

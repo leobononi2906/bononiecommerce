@@ -88,6 +88,45 @@ export function useFaturamentoSitePeriodoAnterior(periodo: Periodo) {
   return useQuery<any[]>(() => fetchFaturamentoSite(start, end), [start, end])
 }
 
+// Vendas de vendedor (ONLINE) já finalizadas no SGA (TBL_VENDA.STATUS='F') mas que ainda não
+// geraram nota fiscal — fetchFaturamento não as vê, porque só lê documento já faturado
+// (vw_comercial_docs_margem). Pedido do Leo em 21/09/2026: também contar essas, pela data do
+// PEDIDO (data_venda — único campo de data que a linha tem antes de faturar). 'A' (aberto, venda
+// ainda não fechada) fica de fora. Investigado em produção nessa data: universo ONLINE inteiro é
+// só 9 pedidos históricos — não é lote represado de meses como Site/Marketplace tinham.
+const PEND_COLS = 'tipo_doc,id_doc,id_empresa,id_vendedor,vendedor,valor,data_venda'
+
+async function fetchFaturamentoVendedorSemNota(start: string, end: string) {
+  const rows = await buscarTudo<any>((de, ate) => supabase
+    .from('vw_vendas_sem_faturamento')
+    .select(PEND_COLS)
+    .eq('tipo_saida', 'ONLINE')
+    .eq('tipo_doc', 'VENDA')
+    .eq('status', 'F')
+    .gte('data_venda', start)
+    .lte('data_venda', end)
+    .order('id_doc', { ascending: true })
+    .range(de, ate))
+  // Formato compatível com FAT_COLS — `id` negativo nunca colide com o id real de
+  // vw_comercial_docs_margem (sequence positiva). Sem custo/margem: a view não traz.
+  return rows.map((r: any) => ({
+    id: -r.id_doc, tipo_doc: r.tipo_doc, id_doc: r.id_doc, id_empresa: r.id_empresa,
+    id_vendedor: r.id_vendedor, nome_vendedor: r.vendedor,
+    faturamento_doc: Number(r.valor) || 0, custo_doc: null, taxa_marketplace: 0,
+    faturamento_liquido: Number(r.valor) || 0, data_faturamento: r.data_venda,
+  }))
+}
+
+export function useFaturamentoVendedorSemNotaPeriodo(periodo: Periodo) {
+  const { start, end } = getPeriodRange(periodo)
+  return useQuery<any[]>(() => fetchFaturamentoVendedorSemNota(start, end), [start, end])
+}
+
+export function useFaturamentoVendedorSemNotaPeriodoAnterior(periodo: Periodo) {
+  const { start, end } = getPreviousPeriodRange(periodo)
+  return useQuery<any[]>(() => fetchFaturamentoVendedorSemNota(start, end), [start, end])
+}
+
 export function useFaturamento6Meses() {
   return useQuery<any[]>(async () => {
     const d = new Date(); d.setMonth(d.getMonth()-5); d.setDate(1)
