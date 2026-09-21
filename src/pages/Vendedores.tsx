@@ -167,6 +167,16 @@ export default function Vendedores() {
         { nome: 'Faturamento 6 meses', error: ef6, reload: rf6 },
       ]} />
 
+      <div style={{marginBottom:14}}>
+        <AlertBanner type="warning">
+          <span>
+            <strong>Faturamento aqui é contado pela emissão da nota fiscal, não pela venda.</strong>{' '}
+            O SGA conta pela venda finalizada — por isso um pedido já vendido mas ainda sem nota emitida
+            só entra neste número depois de faturado, e pode aparecer em dias diferentes nos dois sistemas.
+          </span>
+        </AlertBanner>
+      </div>
+
       <KpiGrid cols={4}>
         <KpiCard label="Faturamento (bruto)" value={kpiValor(efp, lfp, fmtBRL(kpis.total))} />
         <KpiCard label="Devolução externa"   value={kpiValor(edp, lfp, '− '+fmtBRL(kpis.devolucao))}

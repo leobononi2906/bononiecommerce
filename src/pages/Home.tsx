@@ -319,7 +319,7 @@ export default function Home() {
         { nome: 'Meta Ads',                error: emeta,  reload: rmeta },
       ]} />
 
-      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa</span></SectionLabel>
+      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa · Vendedores conta pela emissão da nota fiscal (SGA conta pela venda finalizada)</span></SectionLabel>
       <KpiGrid cols={3}>
         <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp, lfp, fmtBRL(canais.vendedor))} highlight
           liquido={(lfp||edp)?undefined:fmtBRL(liq.vendedor)}
