@@ -18,7 +18,8 @@ type Item = {
   precoErp: number | null; estErp: number | null
   precoBling: number | null; estBling: number | null
 }
-type Filtro = 'todos' | 'divergentes' | 'preco' | 'estoque' | 'estoque_bling_maior' | 'estoque_erp_maior' | 'nao' | 'manual'
+type Filtro = 'todos' | 'divergentes' | 'preco' | 'estoque' | 'nao' | 'manual'
+type Direcao = 'todas' | 'bling_maior' | 'erp_maior'
 
 const C = {
   blueDark: 'var(--blue-dark)', blueMid: 'var(--blue-mid)', surface: 'var(--surface)', border: 'var(--border)',
@@ -37,6 +38,8 @@ function envioDe(it: Item) {
 }
 function mudaPreco(it: Item) { const { preco } = envioDe(it); return preco != null && Math.abs(preco - (it.precoBling ?? 0)) > 0.001 }
 function mudaEstoque(it: Item) { const { est } = envioDe(it); return est != null && (it.estBling == null || Math.abs(est - it.estBling) > 0.001) }
+function difPreco(it: Item) { const { preco } = envioDe(it); return preco == null || it.precoBling == null ? null : preco - it.precoBling }
+function difEstoque(it: Item) { const { est } = envioDe(it); return est == null || it.estBling == null ? null : est - it.estBling }
 function statusDe(it: Item) {
   if (!it.achou) return { bg: 'var(--surface-sunken)', fg: C.hint, txt: 'Sem par' }
   if (!it.sincronizar) return { bg: 'var(--indigo-50)', fg: C.blueDark, txt: 'Manual' }
@@ -52,6 +55,7 @@ export default function ConferenciaBling() {
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>('todos')
+  const [direcao, setDirecao] = useState<Direcao>('todas')
   const [busca, setBusca] = useState('')
   const [paginas, setPaginas] = useState(0)
   const [salvo, setSalvo] = useState<number | null>(null)
@@ -70,22 +74,30 @@ export default function ConferenciaBling() {
     const q = busca.trim().toLowerCase()
     return dados.filter(it => {
       if (filtro === 'divergentes' && !(mudaPreco(it) || mudaEstoque(it) || !it.achou)) return false
-      if (filtro === 'preco' && !mudaPreco(it)) return false
-      if (filtro === 'estoque' && !mudaEstoque(it)) return false
-      if (filtro === 'estoque_bling_maior') {
-        const { est } = envioDe(it)
-        if (est == null || it.estBling == null || it.estBling - est <= 0.001) return false
+      if (filtro === 'preco') {
+        if (!mudaPreco(it)) return false
+        if (direcao !== 'todas') {
+          const d = difPreco(it)
+          if (d == null) return false
+          if (direcao === 'bling_maior' && d >= -0.001) return false
+          if (direcao === 'erp_maior' && d <= 0.001) return false
+        }
       }
-      if (filtro === 'estoque_erp_maior') {
-        const { est } = envioDe(it)
-        if (est == null || it.estBling == null || est - it.estBling <= 0.001) return false
+      if (filtro === 'estoque') {
+        if (!mudaEstoque(it)) return false
+        if (direcao !== 'todas') {
+          const d = difEstoque(it)
+          if (d == null) return false
+          if (direcao === 'bling_maior' && d >= -0.001) return false
+          if (direcao === 'erp_maior' && d <= 0.001) return false
+        }
       }
       if (filtro === 'nao' && it.achou) return false
       if (filtro === 'manual' && (it.sincronizar || !it.achou)) return false
       if (q && !((it.sku || '').toLowerCase().includes(q) || (it.nome || '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [dados, filtro, busca])
+  }, [dados, filtro, busca, direcao])
 
   async function carregar() {
     pararRef.current = false
@@ -141,6 +153,13 @@ export default function ConferenciaBling() {
       boxShadow: filtro === f ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', ...font,
     }}>{label}</button>
   )
+  const dirBtn = (d: Direcao, label: string) => (
+    <button onClick={() => setDirecao(d)} style={{
+      padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
+      background: direcao === d ? C.surface : 'transparent', color: direcao === d ? C.blueDark : C.muted,
+      boxShadow: direcao === d ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', ...font,
+    }}>{label}</button>
+  )
 
   const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: C.blueDark, color: 'var(--surface-card)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', position: 'sticky', top: 0, whiteSpace: 'nowrap', ...font }
   const td: React.CSSProperties = { padding: '8px 12px', borderBottom: `1px solid ${C.border}`, fontSize: 13, whiteSpace: 'nowrap', ...font }
@@ -181,8 +200,16 @@ export default function ConferenciaBling() {
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ display: 'inline-flex', background: 'var(--surface-sunken)', border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 3, gap: 2 }}>
-          {segBtn('todos', 'Todos')}{segBtn('divergentes', 'Divergentes')}{segBtn('preco', 'Preço')}{segBtn('estoque', 'Estoque')}{segBtn('estoque_bling_maior', 'Bling > ERP')}{segBtn('estoque_erp_maior', 'ERP > Bling')}{segBtn('manual', 'Manuais')}{segBtn('nao', 'Sem par')}
+          {segBtn('todos', 'Todos')}{segBtn('divergentes', 'Divergentes')}{segBtn('preco', 'Preço')}{segBtn('estoque', 'Estoque')}{segBtn('manual', 'Manuais')}{segBtn('nao', 'Sem par')}
         </div>
+        {(filtro === 'preco' || filtro === 'estoque') && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: C.muted, ...font }}>Maior no:</span>
+            <div style={{ display: 'inline-flex', background: 'var(--surface-sunken)', border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 3, gap: 2 }}>
+              {dirBtn('todas', 'Ambos')}{dirBtn('bling_maior', 'Bling')}{dirBtn('erp_maior', 'ERP')}
+            </div>
+          </div>
+        )}
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: C.hint }} />
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por SKU ou nome…"
