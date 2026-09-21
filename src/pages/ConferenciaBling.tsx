@@ -18,7 +18,7 @@ type Item = {
   precoErp: number | null; estErp: number | null
   precoBling: number | null; estBling: number | null
 }
-type Filtro = 'todos' | 'divergentes' | 'preco' | 'estoque' | 'nao' | 'manual'
+type Filtro = 'todos' | 'divergentes' | 'preco' | 'estoque' | 'estoque_bling_maior' | 'estoque_erp_maior' | 'nao' | 'manual'
 
 const C = {
   blueDark: 'var(--blue-dark)', blueMid: 'var(--blue-mid)', surface: 'var(--surface)', border: 'var(--border)',
@@ -72,6 +72,14 @@ export default function ConferenciaBling() {
       if (filtro === 'divergentes' && !(mudaPreco(it) || mudaEstoque(it) || !it.achou)) return false
       if (filtro === 'preco' && !mudaPreco(it)) return false
       if (filtro === 'estoque' && !mudaEstoque(it)) return false
+      if (filtro === 'estoque_bling_maior') {
+        const { est } = envioDe(it)
+        if (est == null || it.estBling == null || it.estBling - est <= 0.001) return false
+      }
+      if (filtro === 'estoque_erp_maior') {
+        const { est } = envioDe(it)
+        if (est == null || it.estBling == null || est - it.estBling <= 0.001) return false
+      }
       if (filtro === 'nao' && it.achou) return false
       if (filtro === 'manual' && (it.sincronizar || !it.achou)) return false
       if (q && !((it.sku || '').toLowerCase().includes(q) || (it.nome || '').toLowerCase().includes(q))) return false
@@ -173,7 +181,7 @@ export default function ConferenciaBling() {
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ display: 'inline-flex', background: 'var(--surface-sunken)', border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 3, gap: 2 }}>
-          {segBtn('todos', 'Todos')}{segBtn('divergentes', 'Divergentes')}{segBtn('preco', 'Preço')}{segBtn('estoque', 'Estoque')}{segBtn('manual', 'Manuais')}{segBtn('nao', 'Sem par')}
+          {segBtn('todos', 'Todos')}{segBtn('divergentes', 'Divergentes')}{segBtn('preco', 'Preço')}{segBtn('estoque', 'Estoque')}{segBtn('estoque_bling_maior', 'Bling > ERP')}{segBtn('estoque_erp_maior', 'ERP > Bling')}{segBtn('manual', 'Manuais')}{segBtn('nao', 'Sem par')}
         </div>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: C.hint }} />
