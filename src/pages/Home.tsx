@@ -2,9 +2,9 @@ import React, { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { Calendar, Clock } from 'lucide-react'
 import { useFaturamento6Meses, useFaturamentoPeriodo, useFaturamentoPeriodoAnterior,
-  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior, useFaturamentoSite6Meses,
   useFaturamentoVendedorSemNotaPeriodo, useFaturamentoVendedorSemNotaPeriodoAnterior,
-  useMarketplaceCanais, useMktCanais,
+  useMarketplaceCanais, useMktCanais, useMarketplace6MesesPorPedido,
   useDevolucao6Meses, useDevolucaoPeriodo, useDevolucaoPeriodoAnterior,
   useSubgrupos, useLeads, useMetaAds, useUmblerVendedores, getCanal, getPeriodRange, diasComPedidoRepresado } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
@@ -60,6 +60,14 @@ export default function Home() {
   const { data: mkt,    loading: lmkt, error: emkt,  reload: rmkt }  = useMarketplaceCanais(periodo, mktIds)
   const lmktTotal = lmkt || lmkids || !mktIdsData
   const emktTotal = emkt || emkids
+  // Site e Marketplace, 6 meses, pela DATA DO PEDIDO — mesma fonte dos cards acima, só que
+  // para os 6 meses da tabela "Por departamento". Achado em 21/09/2026: a tabela contava pela
+  // NF emitida e chegava a ~2x o valor do card no mês em andamento (lote represado de meses
+  // anteriores). Ver docs/STATUS.md.
+  const { data: site6,  loading: ls6,  error: es6,  reload: rs6 }  = useFaturamentoSite6Meses()
+  const { data: mkt6,   loading: lm6,  error: em6,  reload: rm6 }  = useMarketplace6MesesPorPedido(mktIds)
+  const lmkt6Total = lm6 || lmkids || !mktIdsData
+  const emkt6Total = em6 || emkids
   const { data: dev6,                error: ed6,   reload: rd6 }   = useDevolucao6Meses()
   const { data: devP,   loading: ldp, error: edp,   reload: rdp }   = useDevolucaoPeriodo(periodo)
   const { data: devAnt,              error: edant, reload: rdant } = useDevolucaoPeriodoAnterior(periodo)
@@ -135,8 +143,12 @@ export default function Home() {
   // docs/STATUS.md 17/09/2026).
   const siteReal    = useMemo(() => (siteP||[]).reduce((s,r:any)=>s+(Number(r.faturamento_doc)||0),0), [siteP])
   const siteRealAnt = useMemo(() => (siteAnt||[]).reduce((s,r:any)=>s+(Number(r.faturamento_doc)||0),0), [siteAnt])
-  const mktReal    = mkt?.totalAtual ?? 0
-  const mktRealAnt = mkt?.totalAnt ?? 0
+  // Bruto (não líquido) — a devolução do marketplace é descontada uma única vez mais abaixo,
+  // junto com a de site e vendedor (`liq`, via `devol`). Usar `totalAtual` (já líquido) aqui
+  // descontava a devolução DUAS VEZES: uma dentro do hook, outra em `liq.marketplace` — o card
+  // "bruto" saía líquido e o "líquido" saía líquido-menos-devolução-de-novo. Achado 21/09/2026.
+  const mktReal    = mkt?.totalBrutoAtual ?? 0
+  const mktRealAnt = mkt?.totalBrutoAnt ?? 0
   const canais    = { ...canaisBruto, site: siteReal, marketplace: mktReal, total: canaisBruto.vendedor + siteReal + mktReal }
   const canaisAnt = { ...canaisAntBruto, site: siteRealAnt, marketplace: mktRealAnt, total: canaisAntBruto.vendedor + siteRealAnt + mktRealAnt }
   const devol     = useMemo(() => somaDevolucao(devP),   [devP, erpAtivos])
@@ -226,6 +238,7 @@ export default function Home() {
     const totais = new Map<string,number>()
     fat6.forEach((r:any) => {
       if (getCanal(r.nome_vendedor||'')!=='vendedor') return
+      if (!erpAtivos.has(String(r.id_vendedor))) return
       const { label, sortKey } = mesInfo(r.data_faturamento)
       const v = shortName(r.nome_vendedor)
       if (!byMes.has(sortKey)) byMes.set(sortKey,{label,vend:{}})
@@ -255,11 +268,16 @@ export default function Home() {
         return row
       })
     return { chartData, series }
-  }, [fat6])
+  }, [fat6, erpAtivos])
 
-  // Tabela 6 meses por departamento — ordenada cronologicamente
+  // Tabela 6 meses por departamento — ordenada cronologicamente. Mesmo critério dos cards
+  // "Faturamento por canal — período selecionado": Vendedores pela emissão da NF (só
+  // ativo/não-interno), Site e Marketplace pela data do PEDIDO — não pela NF, que o ERP
+  // emite em lote e às vezes meses depois. Antes os três contavam pela NF e a linha do mês
+  // em andamento chegava a ~2x o valor do card correspondente (achado 21/09/2026, ver
+  // docs/STATUS.md). Devolução continua por data_devolucao, agregada (não por canal).
   const fat6Depto = useMemo(() => {
-    if (!fat6) return []
+    if (!fat6 || !site6 || !mkt6) return []
     type Row = { sortKey:string; mes:string; Vendedores:number; Marketplace:number; Site:number; total:number; devolucao:number; liquido:number }
     const map = new Map<string,Row>()
     const ensure = (iso:string) => {
@@ -268,13 +286,21 @@ export default function Home() {
       return map.get(sortKey)!
     }
     fat6.forEach((r:any) => {
+      if (getCanal(r.nome_vendedor||'')!=='vendedor') return
+      if (!erpAtivos.has(String(r.id_vendedor))) return
       const f = Number(r.faturamento_doc)
-      const canal = getCanal(r.nome_vendedor||'')
       const row = ensure(r.data_faturamento)
-      if (canal==='vendedor') row.Vendedores+=f
-      else if (canal==='marketplace') row.Marketplace+=f
-      else row.Site+=f
-      row.total+=f
+      row.Vendedores+=f; row.total+=f
+    })
+    site6.forEach((r:any) => {
+      const f = Number(r.faturamento_doc)||0
+      const row = ensure(r.data_criacao)
+      row.Site+=f; row.total+=f
+    })
+    mkt6.forEach((r:any) => {
+      const f = Number(r.faturamento_doc)||0
+      const row = ensure(r.data_criacao)
+      row.Marketplace+=f; row.total+=f
     })
     // Devolução externa por mês (data_devolucao)
     ;(dev6||[]).forEach((r:any) => { ensure(r.data_devolucao).devolucao += Number(r.valor_total)||0 })
@@ -282,7 +308,10 @@ export default function Home() {
     const rows = [...map.values()].sort((a,b)=>a.sortKey<b.sortKey?-1:1)
     rows.forEach(r => { r.liquido = r.total - r.devolucao })
     return rows
-  }, [fat6, dev6])
+  }, [fat6, site6, mkt6, dev6, erpAtivos])
+
+  const l6Depto = lf6 || ls6 || lmkt6Total
+  const e6Depto = ef6 || es6 || emkt6Total
 
   const COLORS = ['var(--blue-dark)','var(--blue-mid)','var(--cyan-500)','var(--blue-600)','var(--blue-500)','var(--blue-400)','var(--cyan-400)','var(--blue-300)']
   const COR_OUTROS = 'var(--border-strong)'
@@ -340,13 +369,15 @@ export default function Home() {
         { nome: 'Devolução do período',    error: edp,    reload: rdp },
         { nome: 'Devolução do período anterior', error: edant, reload: rdant },
         { nome: 'Faturamento 6 meses',     error: ef6,    reload: rf6 },
+        { nome: 'Faturamento do site 6 meses (data do pedido)', error: es6, reload: rs6 },
+        { nome: 'Faturamento do marketplace 6 meses (data do pedido)', error: emkt6Total, reload: rm6 },
         { nome: 'Devolução 6 meses',       error: ed6,    reload: rd6 },
         { nome: 'Subgrupos',               error: esub,   reload: rsub },
         { nome: 'Leads',                   error: eleads, reload: rleads },
         { nome: 'Meta Ads',                error: emeta,  reload: rmeta },
       ]} />
 
-      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa · Vendedores soma nota fiscal emitida + pedido já finalizado no SGA sem nota ainda</span></SectionLabel>
+      <SectionLabel>Faturamento por canal — período selecionado <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— valor principal bruto, líquido já desconta devolução externa · Vendedores soma nota fiscal emitida + pedido já finalizado no SGA sem nota ainda · Site e Marketplace contam pela data do pedido, só o que já foi faturado</span></SectionLabel>
       <KpiGrid cols={3}>
         <KpiCard label="Faturamento Vendedores"  value={kpiValor(efp||evsfp, lfp, fmtBRL(canais.vendedor))} highlight
           liquido={(lfp||edp)?undefined:fmtBRL(liq.vendedor)}
@@ -466,8 +497,8 @@ export default function Home() {
       </Row>
 
       <Card>
-        <CardTitle>Por departamento — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— líquido já desconta a devolução externa{ed6 && !ef6 ? ' · devolução não carregou: a coluna Devolução e o Líquido estão incompletos' : ''}</span></CardTitle>
-        {lf6 ? <Spinner /> : ef6 ? (
+        <CardTitle>Por departamento — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— mesmo critério dos cards acima (Vendedores pela emissão da NF, só ativo · Site/Marketplace pela data do pedido) · líquido já desconta a devolução externa{ed6 && !e6Depto ? ' · devolução não carregou: a coluna Devolução e o Líquido estão incompletos' : ''}</span></CardTitle>
+        {l6Depto ? <Spinner /> : e6Depto ? (
           <div style={{textAlign:'center',color:'var(--red)',padding:24,fontSize:13}}>
             Não foi possível carregar os 6 meses — veja o aviso no topo da página.
           </div>

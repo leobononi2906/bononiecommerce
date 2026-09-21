@@ -6,6 +6,7 @@ import type { EcomSubgrupo, Periodo } from '../types'
 // ── Marketplace: desempenho por canal (ML, Shopee…) ───────────────
 export interface MktCanal {
   nome: string
+  fatBrutoAtual: number; fatBrutoAnt: number   // antes da devolução externa
   fatAtual: number; pedidosAtual: number; ticketAtual: number
   fatAnt: number; pedidosAnt: number
   deltaRs: number; deltaPct: number | null
@@ -74,7 +75,7 @@ export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
   const cur = getPeriodRange(periodo)
   const prev = getPreviousPeriodRange(periodo)
   const chaveIds = (ids || []).join(',')
-  return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number; datasCriacao: string[] }>(async () => {
+  return useQuery<{ canais: MktCanal[]; totalAtual: number; totalAnt: number; totalBrutoAtual: number; totalBrutoAnt: number; datasCriacao: string[] }>(async () => {
     const idsOk = ids || []
     const [ra, rb, da, db] = await Promise.all([
       aggMktPorPedido(idsOk, cur.start, cur.end), aggMktPorPedido(idsOk, prev.start, prev.end),
@@ -92,6 +93,7 @@ export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
       const deltaPct = fatAnt > 0 ? (deltaRs / fatAnt) * 100 : null
       return {
         nome,
+        fatBrutoAtual: at.fat, fatBrutoAnt: an.fat,
         fatAtual, pedidosAtual: at.ped, ticketAtual: at.ped > 0 ? fatAtual / at.ped : 0,
         fatAnt, pedidosAnt: an.ped,
         deltaRs, deltaPct,
@@ -100,8 +102,25 @@ export function useMarketplaceCanais(periodo: Periodo, ids: number[] | null) {
     }).sort((x, y) => y.fatAtual - x.fatAtual)
     const totalAtual = canais.reduce((s, c) => s + c.fatAtual, 0)
     const totalAnt = canais.reduce((s, c) => s + c.fatAnt, 0)
-    return { canais, totalAtual, totalAnt, datasCriacao: ra.datas }
+    const totalBrutoAtual = canais.reduce((s, c) => s + c.fatBrutoAtual, 0)
+    const totalBrutoAnt = canais.reduce((s, c) => s + c.fatBrutoAnt, 0)
+    return { canais, totalAtual, totalAnt, totalBrutoAtual, totalBrutoAnt, datasCriacao: ra.datas }
   }, [chaveIds, cur.start, cur.end, prev.start, prev.end])
+}
+
+/** Marketplace, últimos 6 meses, pela DATA DO PEDIDO — mesmo critério do card "período
+ *  selecionado" (`useMarketplaceCanais` acima), para a tabela "Por departamento" bater com
+ *  os cards em vez de comparar NF emitida (atrasada) com pedido feito. Devolve as linhas
+ *  cruas (uma por documento, com `data_criacao`) para o chamador bucketizar por mês — achado
+ *  em 21/09/2026, mesma causa do site. Ver docs/STATUS.md. */
+export function useMarketplace6MesesPorPedido(ids: number[] | null) {
+  const { start, end } = getPeriodRange('6_meses')
+  const chaveIds = (ids || []).join(',')
+  return useQuery<any[]>(async () => {
+    const idsOk = ids || []
+    if (!idsOk.length) return []
+    return fetchMktComDataDePedido(idsOk, start, end)
+  }, [chaveIds, start, end])
 }
 
 export interface MktCanalId { id: number; label: string }

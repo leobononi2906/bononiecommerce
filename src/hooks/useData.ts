@@ -4,7 +4,7 @@
 export { useQuery, getPeriodRange, getPreviousPeriodRange, periodoLabel, periodoLabelAnterior, getCanal, MKT_NAMES, SITE_NAMES, diasComPedidoRepresado } from '../lib/query'
 
 export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Meses,
-  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior,
+  useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior, useFaturamentoSite6Meses,
   useFaturamentoVendedorSemNotaPeriodo, useFaturamentoVendedorSemNotaPeriodoAnterior,
   comDataDePedido } from './use-faturamento'
 export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses, useDevolucaoPorVendedorPeriodo, useDevolucaoItens } from './use-devolucao'
@@ -12,7 +12,7 @@ export type { DevItemRaw } from './use-devolucao'
 export { useVendedores, useEsperaVendedor, useTempoResposta, useUmblerVendedores, useInternos } from './use-vendedores'
 export type { TempoRespVend } from './use-vendedores'
 export { useLeads, useLeadsRecentes, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
-export { useSubgrupos, useSubgruposERP, useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais, normMkt, rotuloCanal } from './use-marketplace'
+export { useSubgrupos, useSubgruposERP, useMarketplaceCanais, useMarketplace6Meses, useMarketplace6MesesPorPedido, useMarketplaceProdutos6Meses, useMktCanais, normMkt, rotuloCanal } from './use-marketplace'
 export type { MktCanal, MktProdutoRow, MktCanalId } from './use-marketplace'
 export { useCampanhas, useMetaAds, useCampanhaSubgrupos, useMetaAdsAtivos, useMetaAdsDaily } from './use-campaigns'
 export {

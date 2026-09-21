@@ -132,10 +132,20 @@ export function useFaturamento6Meses() {
     const d = new Date(); d.setMonth(d.getMonth()-5); d.setDate(1)
     return buscarTudo<any>((de, ate) => supabase
       .from('vw_comercial_docs_faturados')
-      .select('id,data_faturamento,nome_vendedor,faturamento_doc')
+      .select('id,data_faturamento,nome_vendedor,id_vendedor,faturamento_doc')
       .eq('tipo_saida', 'ONLINE')
       .gte('data_faturamento', d.toISOString().slice(0,10))
       .order('id', { ascending: true })
       .range(de, ate))
   }, [])
+}
+
+/** Site, últimos 6 meses, pela DATA DO PEDIDO — mesmo critério do card "período selecionado"
+ *  (`useFaturamentoSitePeriodo`, via `fetchFaturamentoSite` acima). Existe porque a tabela
+ *  "Por departamento" contava pela emissão da NF e batia até 2x o valor do card no mês em
+ *  andamento (o ERP fatura o site em lote, às vezes meses depois do pedido) — achado em
+ *  21/09/2026. Ver docs/STATUS.md. */
+export function useFaturamentoSite6Meses() {
+  const { start, end } = getPeriodRange('6_meses')
+  return useQuery<any[]>(() => fetchFaturamentoSite(start, end), [start, end])
 }
