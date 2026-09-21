@@ -125,17 +125,22 @@ export function CardTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function AlertBanner({ type, children }: { type: 'error' | 'warning'; children: React.ReactNode }) {
+export function AlertBanner({ type, icon, children }: { type: 'error' | 'warning'; icon?: React.ReactNode; children: React.ReactNode }) {
+  const fg = type === 'error' ? 'var(--red)' : 'var(--amber)'
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: icon ? 'flex-start' : 'center', gap: 8,
       padding: '8px 12px',
       borderRadius: 'var(--radius)',
       border: `1px solid ${type === 'error' ? 'var(--feedback-danger-border)' : 'var(--feedback-warning-border)'}`,
       background: type === 'error' ? 'var(--red-bg)' : 'var(--amber-bg)',
       fontSize: 12,
     }}>
-      <div style={{ width: 7, height: 7, borderRadius: '50%', background: type === 'error' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }} />
+      {/* Cor de alerta só no ícone/título — texto do corpo herda a cor normal (--text-primary),
+          senão o parágrafo inteiro vira âmbar e perde contraste/legibilidade. */}
+      {icon
+        ? <span style={{ color: fg, flexShrink: 0, marginTop: 1, display: 'flex' }}>{icon}</span>
+        : <div style={{ width: 7, height: 7, borderRadius: '50%', background: fg, flexShrink: 0 }} />}
       {children}
     </div>
   )

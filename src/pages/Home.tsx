@@ -286,20 +286,22 @@ export default function Home() {
       <PageHeader title="Visão Geral" />
 
       {mesParcial && !lfp && (
-        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--feedback-warning-border)', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
-          <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
-          <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
+        <div style={{marginBottom:14}}>
+          <AlertBanner type="warning" icon={<Calendar size={14} aria-hidden="true" />}>
+            <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
+          </AlertBanner>
         </div>
       )}
 
       {canaisRepresados.length > 0 && (
-        <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--feedback-warning-border)', borderRadius:'var(--radius)', padding:'9px 14px', marginBottom:14, fontSize:12.5 }}>
-          <Clock size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
-          <span>
-            <strong>Pedido de hoje represado no faturamento: {canaisRepresados.join(' e ')}.</strong>{' '}
-            O ERP não fatura o pedido no mesmo dia — os últimos 1-2 dias deste período aparecem bem abaixo do normal
-            porque o SGA ainda não terminou de processar, não porque a venda caiu. O valor deve subir sozinho nos próximos dias.
-          </span>
+        <div style={{marginBottom:14}}>
+          <AlertBanner type="warning" icon={<Clock size={14} aria-hidden="true" />}>
+            <span>
+              <strong>Pedido de hoje represado no faturamento: {canaisRepresados.join(' e ')}.</strong>{' '}
+              O ERP não fatura o pedido no mesmo dia — os últimos 1-2 dias deste período aparecem bem abaixo do normal
+              porque o SGA ainda não terminou de processar, não porque a venda caiu. O valor deve subir sozinho nos próximos dias.
+            </span>
+          </AlertBanner>
         </div>
       )}
 
