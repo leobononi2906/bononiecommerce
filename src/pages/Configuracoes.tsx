@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useUmblerVendedores, useCampanhaSubgrupos, useLeadsUmblerIds, useSubgruposERP, useMetaAdsAtivos } from '../hooks/useData'
 import { Card, CardTitle, SectionLabel, Badge, Spinner } from '../components/ui'
 import ThresholdConfig from '../components/campaigns/ThresholdConfig'
-import { Plus, Trash2, Save, UserPlus } from 'lucide-react'
+import { Plus, Trash2, Save, UserPlus, CheckCircle2 } from 'lucide-react'
 import type { EcomUmblerVendedor, Periodo } from '../types'
 import { usePeriodo } from '../components/layout/AppShell'
 
@@ -259,7 +259,7 @@ export default function Configuracoes() {
                       onClick={()=>toggleInterno(v.id_membro_umbler, (v as any).interno||false)}
                       title={(v as any).interno ? 'Clique para marcar como vendedor' : 'Clique para marcar como interno'}
                       style={{ ...BTN((v as any).interno?'var(--amber)':'var(--text-hint)', (v as any).interno?'var(--amber-bg)':'var(--surface-sunken)'), fontSize:11 }}>
-                      {(v as any).interno ? '🔧 Interno' : '–'}
+                      {(v as any).interno ? 'Interno' : '–'}
                     </button>
                   </td>
                   <td style={td}>
@@ -297,7 +297,7 @@ export default function Configuracoes() {
             <select style={INPUT} value={csForm.campanha} onChange={e=>setCsForm(f=>({...f,campanha:e.target.value}))}>
               <option value="">
                 {campanhasDisponiveis.length === 0
-                  ? 'Todas as campanhas ativas já estão vinculadas ✅'
+                  ? 'Todas as campanhas ativas já estão vinculadas'
                   : `Selecione (${campanhasDisponiveis.length} disponíveis)…`}
               </option>
               {campanhasDisponiveis.map(c => (
@@ -305,8 +305,9 @@ export default function Configuracoes() {
               ))}
             </select>
             {campanhasJaVinculadas.size > 0 && (
-              <div style={{ fontSize:11, color:'var(--green)', marginTop:4 }}>
-                ✅ {campanhasJaVinculadas.size} campanha(s) já vinculada(s) e ocultadas do select
+              <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--green)', marginTop:4 }}>
+                <CheckCircle2 size={12} />
+                {campanhasJaVinculadas.size} campanha(s) já vinculada(s) e ocultadas do select
               </div>
             )}
           </div>

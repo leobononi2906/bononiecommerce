@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { Users } from 'lucide-react'
 import { useLeads, useLeadsRecentes, useTempoResposta, useMetaAds, useVendedoresAtivosCount } from '../hooks/useData'
 import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col, FunnelBar } from '../components/layout'
@@ -77,7 +78,7 @@ export default function Atendimento() {
 
       <SectionLabel>KPIs de atendimento</SectionLabel>
       <KpiGrid cols={4}>
-        <KpiCard label="Leads recebidos" value={kpiValor(eleads, lleads, fmtNum(totalLeads))} icon="👥" highlight />
+        <KpiCard label="Leads recebidos" value={kpiValor(eleads, lleads, fmtNum(totalLeads))} icon={<Users size={14} />} highlight />
         <KpiCard label="Leads Meta Ads" value={kpiValor(emeta, lmeta, fmtNum(totalLeadsMeta))} sub={!emeta && cpl > 0 ? `CPL: R$ ${cpl.toFixed(2)}` : undefined} />
         <KpiCard label="Tempo de resposta (mediana)" value={kpiValor(etempo, ltempo, fmtMinutes(medianaGeral))} sub="1ª msg → 1ª resposta" />
         <KpiCard label="Vendedores ativos" value={vendedoresAtivos != null ? String(vendedoresAtivos) : '…'} sub="config no Hub · Umbler → Usuários" />

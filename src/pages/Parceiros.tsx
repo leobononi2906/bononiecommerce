@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { Plus, Search, X, Save, ChevronDown, MessageCircle, Users, Calendar, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, Search, X, Save, ChevronDown, MessageCircle, Users, Calendar, Trash2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
@@ -549,7 +549,7 @@ export default function Parceiros() {
                       ))}
                     </div>
                   )}
-                  {vencendo&&<div style={{fontSize:11,color:C.amber,fontWeight:600,marginBottom:8,...font}}>⚠️ Acordo vence em breve</div>}
+                  {vencendo&&<div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:C.amber,fontWeight:600,marginBottom:8,...font}}><AlertTriangle size={12}/> Acordo vence em breve</div>}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{display:'flex',gap:12}}>
                       {p.contato_whatsapp&&<a href={`https://wa.me/55${p.contato_whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:C.green,display:'flex',alignItems:'center',gap:4,fontSize:12,...font}}>
