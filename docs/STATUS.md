@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-09-21
+> Atualizado: 2026-09-23
 
 ## Documentação
 
@@ -9,6 +9,7 @@
 | `docs/META_CAPI_E_RELATORIOS.md` (01/09) | guia do Meta: atribuição, relatórios de campanha e CAPI — inclui o handoff do repoint do Tintim, a regra de leitura da conversão e o estado do CAPI | antes de mexer em ROAS, CAC, atribuição ou em qualquer número que venha do Meta Ads |
 | `docs/sql/2026-09-17_preflight_vw_ecom_docs_datas.sql` + `2026-09-17_ensaio_aceite_vw_ecom_docs_datas.sql` | pré-voo e teste de aceite da view `vw_ecom_docs_datas` (data de criação do pedido a nível de documento) | antes de mexer em `use-faturamento.ts` ou em qualquer card que compare "faturado" com "pedido feito" |
 | `docs/2026-09-17-design-system.md` | receituário do design system Stonni interno aplicado (tokens, ponte, o que ficou de fora) | antes de mexer em cor/fonte/medida em qualquer tela, ou antes de criar tela nova |
+| `docs/2026-09-22-diagnostico-atendimento-vendedor.md` | diagnóstico da planilha manual de atendimento x app: fecha quem são os 9 nomes (Guilherme=atacado, Blas=ex-funcionário), descarta vínculo Umbler pra Henrique Trombini/Michael (já decidido antes) e Matheus/Klevertton (ex-funcionários), e abre 2 itens reais: `convertido` nunca preenchido em `ecom_leads`, `ecom_sdr_atendimentos` parado desde 09/09 | antes de propor vincular qualquer vendedor novo em `ecom_umbler_vendedor`, ou antes de mexer na métrica de conversão do Atendimento |
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
@@ -37,8 +38,10 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 **Não era bug de render** (a Home já tinha o card "Faturamento Site"). A plataforma migrou de `SITE` pra `TRAY` (Tray Commerce) entre abr–jul/26; `SITE` zerou e `TRAY` virou 100% do canal, mas `getCanal()` não reconhecia `TRAY` e jogava tudo pro bucket "vendedor" (inflando o ranking de vendedores e zerando o site). Fix: `SITE_NAMES` em `src/lib/query.ts` agora inclui `'TRAY'`. Corrige de uma vez Home, Vendedores, Marketplace e Relatórios (todos usam o mesmo `getCanal()`).
 
 ## Pendências / próximos passos
+- [x] ~~Cadeia `ecom_sdr_*` (conversão por atendimento individual, tipo "FECHOU/INTERESSADO/...") tinha o consumidor externo travado desde 2026-09-09 13:25:27 UTC~~ — resolvido em 23/09: a causa não era um serviço externo quebrado, era **não haver nada chamando a função de normalização**. `ecom_sdr_sync_norm()` é uma função Postgres autocontida (lê `umbler_eventos`, grava nas tabelas normalizadas, avança `norm_checkpoint`) — não depende de LLM nem de nada fora do banco, só precisava ser invocada, e nunca achamos por quem/onde (não é cron, não é Edge Function, sem trigger, sem Database Webhook — conferido de novo, mesmo resultado do dia anterior). **Aplicado:** rodei `ecom_sdr_sync_norm()` direto (testada antes em `--ensaio`) pra colocar os 14 dias em dia — 41.123 mensagens, 2.068 transferências, 45 vendas, checkpoint em dia — e criei `cron.job` **`ecom-sdr-sync-norm`** (jobid 66, `*/10 * * * *`) chamando essa mesma função, pra parar de depender do processo externo desconhecido. Ver dev-log 23/09.
+- [ ] **`ecom_leads.convertido` está zerado em 28.100 de 28.100 linhas — a coluna existe mas nunca foi preenchida.** `vw_ecom_vendedores.convertidos` usa nota fiscal `ONLINE` por vendedor como proxy, não "este atendimento virou esta venda" de verdade. Decisão de produto, não bug: construir a amarração lead→venda (esforço médio) ou aceitar o proxy atual. Ver `docs/2026-09-22-diagnostico-atendimento-vendedor.md` §3.A.
 - [ ] **Os 63 leads que sobraram sem vínculo não são do e-commerce.** `aTGhkpoXrJLt7_rY` (39, Henrique Trombini/ERP 7686) e `aTG6AL5d9I0UBGsZ` (22, Michael/ERP 47544) têm **0 docs ONLINE em 6 meses** — são loja física e O.S. **Não vincular**: vinculá-los colocaria venda de balcão no ranking do e-commerce. Some `aYOfFB11Ou5bM8fo` (2 leads). O caminho certo é separar esses atendimentos na Umbler, não no dashboard.
-- [ ] **🔴 Checkup de dados da Meta enviado (21/09), em análise — Meta avisa até 10 dias, acesso à API segue bloqueado.** Testado por invocação direta logo após o envio: mesmo erro de antes (`Meta API: API access disrupted. Go to the App Dashboard and complete Data Use Checkup.`) — enviar o formulário não reabre a API sozinho, só a aprovação da Meta libera (ver dev-log 21/09). Enquanto isso, **o rombo de investimento não gravado continua** (~R$ 750/dia desde 16/09), e ROAS/CAC da Home seguem inflados (aviso ativo desde 16/09). **Quando a Meta aprovar:** invocar `ecom-meta-sync` uma vez com `{"dias": 30}` pra recuperar 10–16/09 — a janela padrão da versão publicada é só 7 dias, não alcança mais essas datas — e conferir que o aviso da Home some.
+- [x] ~~🔴 Meta cortou o acesso à API (Data Use Checkup vencido)~~ — resolvido em 22/09: Meta aprovou o checkup em 1 dia (bem antes do prazo de até 10 avisado). `ecom-meta-sync` invocada com `{"dias": 30}` recuperou 23/08–21/09 inteiro (402 registros, R$19.575,26), incluindo os 7 dias que tinham ficado perdidos (10–16/09). Conferido na Home em produção: o aviso multi-dia sumiu, sobrou só o aviso normal de atraso de 1 dia (defasagem esperada do cron diário). Ver dev-log 22/09.
 - [x] ~~O card "Faturamento Site" fica enviesado pra baixo no mês corrente~~ — resolvido em 17/09 com o aviso "Pedido de hoje represado" (ver dev-log). Cobre Site e Marketplace.
 - [ ] **O já-faturado de Vendedores ainda conta pela data de faturamento, não pela data do pedido** (diferente de Site/Marketplace, corrigidos em 17/09). Ganhou em 21/09 uma correção parcial — passou a somar também pedido já finalizado no SGA sem nota (ver dev-log) — mas decisão do Leo foi não estender a data-do-pedido pro que já tem nota agora: Vendedores não tem indício de lote represado como os outros dois canais, mas não foi conferido a fundo.
 - [ ] **71 pedidos do lote de Bling represado (R$ 23.011,15) ainda não têm documento no ERP.** Quando o SGA finalmente faturar essas 71 notas, `data_criacao` delas vai nascer com a data de hoje (do faturamento), não a data real do pedido — porque `vw_ecom_docs_datas` deriva de `vw_comercial_itens_margem`, que só existe depois que o documento é criado. Pra esses (só esses — os outros 711 já têm `data_criacao` certa) vai precisar da tabela de exceção `ecom_doc_data_real` desenhada na investigação de 17/09 (ver dev-log), preenchida por match `data+cliente+valor±R$300` depois que o SGA os criar.
@@ -48,7 +51,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - [ ] **`vw_ecom_subgrupos` e `vw_ecom_campanha_conversao` continuam raspando o timeout** — hoje seguram porque o retry do front cobre. O conserto de verdade precisa de índice em `vw_comercial_itens_faturados`, que é recarregada inteira ~500x pelo `rep_swap`: medir o impacto no swap antes de criar qualquer coisa lá.
 - [ ] **Margem líquida do marketplace (frete+taxas) — BLOQUEADA em achar a tabela certa.** Leo pediu pra descontar frete+comissão do card "Faturamento Marketplace". `vw_comercial_docs_faturados` já tem `taxa_marketplace`/`valor_frete`, mas funciona só pro ML (Shopee tem `taxa_marketplace=0`, gap de dado). O Leo mandou print do ERP com "FRETE E-COMMERCE PGTO"/"COMISSAO E-COMMERCE" (código ~164486+) — confirmado Firebird antigo, mas não é `TBL_MOVIMENTO` (não bate com `vw_fb_movimento_base`, que só vai até cod_movimento 114329). Falta achar a tabela certa e escrever extração nova no `bononi-replicador`. (Havia aqui, até 15/09, um ponteiro para um "ESTADO_ATUAL_APP" em `docs/` que **não existe** — o detalhe que importava é o desta linha.)
 - [ ] **Mover OFICIAL LV/LF pra Aplicação "GERAL SUPABASE"** na UI da Umbler e remover o webhook dedicado antigo (só o Leo faz). Enquanto coexistir = entrega dupla (não quebra).
-- [ ] Otimizar `vw_ecom_campanha_conversao` (500 intermitente por timeout; com filtro `mes_ref` responde 200) — usada pelo pipeline antigo de Marketing, não pela nova aba ROI.
+- [ ] Otimizar `vw_ecom_campanha_conversao` (500 intermitente por timeout; com filtro `mes_ref` responde 200) — usada pelo pipeline antigo de Marketing, não pela nova aba ROI. **Investigado de novo em 22/09:** reportado como travado (spinner infinito, 9× 500), mas num reload limpo (sem carga própria em paralelo) a tela `Campanhas` carregou normal em ~10s, números batendo com Home/Campanhas-ROI. Contenção provável (5 queries próprias da tela + testes em paralelo na mesma janela), não quebra de código. Decisão: manter como está — o índice que resolveria de vez segue sem medir o impacto no `rep_swap` (mesma pendência de antes), e não vale mexer em cima de um problema que não reproduziu limpo.
 - [ ] Se o Leo quiser, aplicar líquido de devolução também no gráfico 6m por vendedor (Home/Vendedores) e no pivô de produtos (Marketplace) — hoje ficam brutos de propósito.
 
 ## Dívidas e armadilhas conhecidas
@@ -57,6 +60,39 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-23 — **Achado e religado o consumidor do `ecom_sdr_*` — pendência do board pessoal
+  (Trello "Rotina Bononi" → Hoje, "[Atendimento IA]").** Reconferi contra produção o diagnóstico
+  de 22/09 (§3.B): `norm_checkpoint` continuava travado em 2026-09-09T13:25:27, backlog tinha
+  crescido de 70.880 pra 77.042 eventos, e a busca por trigger em `umbler_eventos`/`ecom_*`,
+  Database Webhook (`supabase_functions.hooks` nem existe neste projeto) e nos 80 Edge Functions
+  publicados (`supabase functions list`) não achou nada relacionado — confirma que é mesmo
+  externo ao Postgres e ao Supabase Functions.
+  - **A virada:** em vez de continuar procurando o consumidor externo, procurei os `pg_proc` que
+    referenciam `ecom_sdr` e achei `ecom_sdr_sync_norm()` — função sem parâmetro, `SECURITY
+    DEFINER`, que faz o trabalho INTEIRO sozinha (lê `umbler_eventos` desde o checkpoint, faz
+    upsert em `ecom_sdr_mensagens_norm`/`_transferencias_norm`/`_fechamentos_norm`, chama
+    `ecom_sdr_refresh_rollups`, avança `norm_checkpoint`). Não chama nada de fora — só precisa
+    ser chamada. O "consumidor externo" nunca foi uma pipeline complexa: era só o que quer que
+    invocasse essa função de tempos em tempos, e isso parou em 09/09 sem deixar rastro.
+  - **Testado com `--ensaio` antes de aplicar** (roda de verdade, desfaz tudo): 40.711 mensagens,
+    2.060 transferências, 45 vendas, 3.560 chats, ~20-35s, zero erro. Só depois disso apliquei de
+    verdade.
+  - **Aplicado em produção:** `select ecom_sdr_sync_norm();` direto — **41.123 mensagens, 2.068
+    transferências, 45 vendas upsertadas**, checkpoint em `2026-09-23T13:29:49`. Conferido lendo
+    `ecom_sdr_config` depois: bate. (O `sql.py` imprimiu o resultado sob o rótulo `ERRO` — é só
+    como o script formata um `map[...]` do Go, não é falha; confirmado pelo objeto, não pela
+    palavra — mesma armadilha já registrada em `supabase-cli-so-ultimo-resultado`.)
+  - **Criado `cron.job` `ecom-sdr-sync-norm`** (jobid **66**, `*/10 * * * *`, comando `select
+    public.ecom_sdr_sync_norm();`) — assim o Atendimento IA para de depender de um processo
+    externo que ninguém sabe onde mora. Verificar daqui a uns dias que `norm_checkpoint`
+    continua andando (cron "succeeded" só prova que rodou, não que a função fez o que devia —
+    mesmo cuidado do caso do Bling).
+  - **Não mexi** em `analisar_ecom_sdr`/`analisar_ecom_sdr_gateway` (a etapa de classificação
+    FECHOU/INTERESSADO/etc.) — são funções à parte, chamadas sob demanda com período+vendedor,
+    não fazem parte do que estava travado.
+- 2026-09-22 (1) — **Meta aprovou o checkup em 1 dia (não os até-10 avisados) — backfill recuperou o buraco inteiro, e a Home confirma.** Fecha o incidente aberto em 16/09.
+  - Invocação direta com `{"dias": 30}` (chave anon) voltou `ok:true`: janela 23/08–21/09, 402 registros, **R$19.575,26** recuperados. `dias_gravados` inclui os 7 dias que a versão antiga teria perdido pra sempre (10 a 16/09) — e como só a versão nova devolve `desde/ate/dias_gravados`, essa resposta também fecha a dúvida de ontem sobre qual versão estava publicada (era a nova).
+  - **Conferido na Home em produção** (`bononiecommerce.vercel.app`, sem login): o aviso "Investimento em tráfego incompleto" mudou de multi-dia pra **"faltam 1 dia de carga"** — a defasagem normal até o cron de amanhã rodar, não mais incidente. ROAS/CAC continuam só com a cautela padrão de 1 dia, não o alerta grave que tinha desde 16/09.
 - 2026-09-21 (8) — **`buscarTudo` (`src/lib/query.ts`) não aceita mais página curta/vazia como fim sem confirmar.** Corrige o truncamento sob carga concorrente achado na entrada (7) de hoje (mesma consulta variou 566/1129/7066 linhas).
   - **Causa não fechada por completo:** não dá pra confirmar daqui se o truncamento é do PostgREST, do Supavisor (pool sob contenção) ou de outra camada — não tenho acesso aos logs de infra do Supabase. A correção foi desenhada pra ser correta independente de qual seja: em vez de tentar identificar o mecanismo, ela para de confiar cegamente numa página curta.
   - **Fix:** antes de aceitar uma página mais curta que `PAGINA` (inclusive vazia) como fim de dados, `buscarTudo` sonda 1 linha exatamente no ponto onde parou (`paginar(de, de)`). Achar linha na sondagem prova que a página anterior tinha sido truncada — em vez de perder o resto calado, a linha sondada entra no total e a busca volta a paginar normalmente a partir dali. Só confirma "acabou" quando a sondagem vem vazia.
