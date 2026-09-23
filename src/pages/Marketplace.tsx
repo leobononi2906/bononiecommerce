@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, ShoppingBag, Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMktCanais, periodoLabel, periodoLabelAnterior } from '../hooks/useData'
+import { useMarketplaceCanais, useMarketplace6Meses, useMarketplaceProdutos6Meses, useMarketplaceDevolucaoProdutos6Meses, useMktCanais, periodoLabel, periodoLabelAnterior } from '../hooks/useData'
 import type { MktCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, SectionLabel } from '../components/ui'
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
@@ -68,6 +68,7 @@ export default function Marketplace() {
   const loading = lFat || lCanaisIds || !mktCanais
   const { data: seis, loading: l6 } = useMarketplace6Meses()
   const { data: prodRows, loading: lprod } = useMarketplaceProdutos6Meses(idsCanais)
+  const { data: devProdRows } = useMarketplaceDevolucaoProdutos6Meses(idsCanais)
   const [canalSel, setCanalSel] = useState<number | 'ALL'>('ALL')
   const [metric, setMetric] = useState<'fat' | 'qtd'>('fat')
 
@@ -115,10 +116,15 @@ export default function Marketplace() {
     return { chartData, chartCanais, sparkByCanal }
   }, [seis])
 
-  // Tabela de produtos: pivô produto × últimos 6 meses (filtrado por canal + métrica)
+  // Tabela de produtos: pivô produto × últimos 6 meses (filtrado por canal + métrica).
+  // Líquido (fat) = faturado − devolução externa do mesmo produto/mês/canal — decisão do Leo
+  // em 2026-09-23: ficava bruto "de propósito", agora desconta igual ao resto da tela.
+  // Quantidade (qtd) segue bruta de propósito: devolução não é "venda a menos", é peça que voltou —
+  // misturar as duas no mesmo contador confundiria giro de estoque com faturamento.
   const meses6 = useMemo(() => last6Months(), [])
   const produtos = useMemo(() => {
     const rows = (prodRows ?? []).filter(r => canalSel === 'ALL' || r.canalId === canalSel)
+    const devRows = (devProdRows ?? []).filter(r => canalSel === 'ALL' || r.canalId === canalSel)
     const map = new Map<string, { referencia: string; produto: string; porMes: Record<string, number>; total: number }>()
     rows.forEach(r => {
       const val = metric === 'fat' ? r.fat : r.qtd
@@ -128,8 +134,19 @@ export default function Marketplace() {
       if ((!e.produto || e.produto === '—') && r.produto) e.produto = r.produto
       map.set(r.referencia, e)
     })
-    return [...map.values()].filter(p => p.total > 0).sort((a, b) => b.total - a.total)
-  }, [prodRows, canalSel, metric])
+    if (metric === 'fat') {
+      devRows.forEach(r => {
+        const e = map.get(r.referencia) || { referencia: r.referencia, produto: r.produto, porMes: {}, total: 0 }
+        e.porMes[r.mes] = (e.porMes[r.mes] || 0) - r.fat
+        e.total -= r.fat
+        if ((!e.produto || e.produto === '—') && r.produto) e.produto = r.produto
+        map.set(r.referencia, e)
+      })
+    }
+    // total !== 0 (não > 0): produto que devolveu mais do que vendeu no período fica líquido
+    // negativo — esconder isso seria repetir o erro de completar-o-vazio, bem na hora que mais importa.
+    return [...map.values()].filter(p => p.total !== 0).sort((a, b) => b.total - a.total)
+  }, [prodRows, devProdRows, canalSel, metric])
 
   const fmtVal = (v: number) => metric === 'fat' ? fmtBRL(v) : fmtNum(v)
 
@@ -241,7 +258,7 @@ export default function Marketplace() {
           </Row>
 
           {/* ─── Vendas por produto ─────────────────────────── */}
-          <SectionLabel>Vendas por produto — últimos 6 meses <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-hint)' }}>(bruto, sem descontar devolução)</span></SectionLabel>
+          <SectionLabel>Vendas por produto — últimos 6 meses <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-hint)' }}>{metric === 'fat' ? '(líquido — já desconta devolução externa)' : '(quantidade bruta — devolução é peça que voltou, não venda a menos)'}</span></SectionLabel>
           <Card>
             {/* Filtros: canal + métrica */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -289,16 +306,18 @@ export default function Marketplace() {
                         </td>
                         {meses6.map(m => {
                           const v = p.porMes[m.sortKey] || 0
-                          return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: v > 0 ? 'var(--text-primary)' : 'var(--text-hint)' }}>{v > 0 ? fmtVal(v) : '·'}</td>
+                          // !== 0, não > 0: mês com devolução maior que venda fica negativo — "·" esconderia
+                          // exatamente o dado que mais importa (mesmo erro já corrigido no total da linha).
+                          return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: v > 0 ? 'var(--text-primary)' : v < 0 ? 'var(--red)' : 'var(--text-hint)' }}>{v !== 0 ? fmtVal(v) : '·'}</td>
                         })}
-                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(p.total)}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: p.total < 0 ? 'var(--red)' : 'var(--blue-dark)' }}>{fmtVal(p.total)}</td>
                       </tr>
                     ))}
                     <tr style={{ background: 'var(--surface-subtle)' }}>
                       <td style={{ padding: '8px 10px', fontWeight: 700, position: 'sticky', left: 0, background: 'var(--surface-subtle)' }}>Total ({produtos.length} produtos)</td>
                       {meses6.map(m => {
                         const tot = produtos.reduce((s, p) => s + (p.porMes[m.sortKey] || 0), 0)
-                        return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{tot > 0 ? fmtVal(tot) : '·'}</td>
+                        return <td key={m.sortKey} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: tot < 0 ? 'var(--red)' : undefined }}>{tot !== 0 ? fmtVal(tot) : '·'}</td>
                       })}
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--blue-dark)' }}>{fmtVal(produtos.reduce((s, p) => s + p.total, 0))}</td>
                     </tr>

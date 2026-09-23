@@ -205,6 +205,33 @@ export function useMarketplaceProdutos6Meses(ids: number[] | null) {
   }, [chave])
 }
 
+/** Devolução externa por produto/mês nos MESMOS canais de marketplace (últimos 6 meses) —
+ *  mesmo `id_vendedor` do faturamento acima, pra casar por `referencia`+`mes` sem duplicar
+ *  classificação de canal. Decisão do Leo em 2026-09-23: o pivô de produtos ficava bruto
+ *  "de propósito", agora desconta devolução igual ao card e ao gráfico por canal. */
+export function useMarketplaceDevolucaoProdutos6Meses(ids: number[] | null) {
+  const chave = (ids || []).join(',')
+  return useQuery<MktProdutoRow[]>(async () => {
+    if (!ids || !ids.length) return []
+    const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1)
+    const data = await buscarTudo<any>((de, ate) => supabase
+      .from('vw_ecom_devolucao_externa')
+      .select('id,id_vendedor,referencia,nome_produto,data_devolucao,qtd,valor_total')
+      .in('id_vendedor', ids)
+      .gte('data_devolucao', d.toISOString().slice(0, 10))
+      .order('id', { ascending: true })
+      .range(de, ate))
+    return data.map((r: any) => ({
+      canalId: r.id_vendedor,
+      referencia: r.referencia || '—',
+      produto: r.nome_produto || '—',
+      mes: (r.data_devolucao || '').slice(0, 7),
+      qtd: Number(r.qtd) || 0,
+      fat: Number(r.valor_total) || 0,
+    }))
+  }, [chave])
+}
+
 /** Série mensal (últimos 6 meses) por canal — LÍQUIDA. Devolução entra como fat negativo
  *  (data_devolucao), somando por mês×canal na mesma agregação do faturamento. */
 export function useMarketplace6Meses() {

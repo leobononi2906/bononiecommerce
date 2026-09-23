@@ -12,7 +12,7 @@ export type { DevItemRaw } from './use-devolucao'
 export { useVendedores, useEsperaVendedor, useTempoResposta, useUmblerVendedores, useInternos } from './use-vendedores'
 export type { TempoRespVend } from './use-vendedores'
 export { useLeads, useLeadsRecentes, useLeadsUmblerIds, useOrigemLeads } from './use-leads'
-export { useSubgrupos, useSubgruposERP, useMarketplaceCanais, useMarketplace6Meses, useMarketplace6MesesPorPedido, useMarketplaceProdutos6Meses, useMktCanais, normMkt, rotuloCanal } from './use-marketplace'
+export { useSubgrupos, useSubgruposERP, useMarketplaceCanais, useMarketplace6Meses, useMarketplace6MesesPorPedido, useMarketplaceProdutos6Meses, useMarketplaceDevolucaoProdutos6Meses, useMktCanais, normMkt, rotuloCanal } from './use-marketplace'
 export type { MktCanal, MktProdutoRow, MktCanalId } from './use-marketplace'
 export { useCampanhas, useMetaAds, useCampanhaSubgrupos, useMetaAdsAtivos, useMetaAdsDaily } from './use-campaigns'
 export {

@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
+import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useDevolucao6Meses, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
@@ -21,12 +21,15 @@ export default function Vendedores() {
   const { data: fatP,    loading: lfp,  error: efp,    reload: rfp    } = useFaturamentoPeriodo(periodo)
   const { data: vsfP,                  error: evsfp,  reload: rvsfp  } = useFaturamentoVendedorSemNotaPeriodo(periodo)
   const { data: fat6,    loading: lf6,  error: ef6,    reload: rf6    } = useFaturamento6Meses()
+  const { data: dev6,                  error: edev6,  reload: rdev6  } = useDevolucao6Meses()
   const { data: devP,                 error: edp,    reload: rdp    } = useDevolucaoPorVendedorPeriodo(periodo)
   const { data: leads,                error: eleads, reload: rleads } = useLeads(periodo)
   const { data: umbler,               error: eumbler,reload: rumbler} = useUmblerVendedores()
   const [lastRefresh, setLastRefresh]    = useState(new Date())
 
-  // Gráfico 6 meses por vendedor (canal vendedor) — top 10 nominais + Outros, inclui quem já saiu
+  // Gráfico 6 meses por vendedor (canal vendedor) — top 10 nominais + Outros, inclui quem já saiu.
+  // Líquido = bruto − devolução externa (mesmo critério do ranking abaixo e do card Home/Vendedores,
+  // decisão do Leo em 2026-09-23: hoje ficava bruto "de propósito", agora desconta igual ao resto).
   const fat6Vend = useMemo(() => {
     if (!fat6) return { chartData: [] as any[], series: [] as string[] }
     const byMes = new Map<string, { label: string; vend: Record<string, number> }>()
@@ -38,6 +41,14 @@ export default function Vendedores() {
       if (!byMes.has(sortKey)) byMes.set(sortKey, { label, vend: {} })
       byMes.get(sortKey)!.vend[v] = (byMes.get(sortKey)!.vend[v] || 0) + Number(r.faturamento_doc)
       totais.set(v, (totais.get(v) || 0) + Number(r.faturamento_doc))
+    })
+    ;(dev6 || []).forEach((r: any) => {
+      if (getCanal(r.nome_vendedor || '') !== 'vendedor') return
+      const { label, sortKey } = mesInfo(r.data_devolucao)
+      const v = shortName(r.nome_vendedor)
+      if (!byMes.has(sortKey)) byMes.set(sortKey, { label, vend: {} })
+      byMes.get(sortKey)!.vend[v] = (byMes.get(sortKey)!.vend[v] || 0) - Number(r.valor_total)
+      totais.set(v, (totais.get(v) || 0) - Number(r.valor_total))
     })
     const TOP = 10
     const nomes = [...totais.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
@@ -51,10 +62,10 @@ export default function Vendedores() {
       return row
     })
     return { chartData, series }
-  }, [fat6])
+  }, [fat6, dev6])
 
   useEffect(() => {
-    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rvsfp(); rdp(); rleads(); rumbler(); rf6() }, 5*60*1000)
+    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rvsfp(); rdp(); rleads(); rumbler(); rf6(); rdev6() }, 5*60*1000)
     return () => clearInterval(t)
   }, [])
 
@@ -182,6 +193,7 @@ export default function Vendedores() {
         { nome: 'Leads',        error: eleads,  reload: rleads },
         { nome: 'Vínculos Umbler', error: eumbler, reload: rumbler },
         { nome: 'Faturamento 6 meses', error: ef6, reload: rf6 },
+        { nome: 'Devolução 6 meses', error: edev6, reload: rdev6 },
       ]} />
 
       <div style={{marginBottom:14}}>
@@ -274,7 +286,7 @@ export default function Vendedores() {
       </Card>
 
       <Card>
-        <CardTitle>Faturamento por vendedor — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— inclui vendedores que já saíram</span></CardTitle>
+        <CardTitle>Faturamento líquido por vendedor — últimos 6 meses <span style={{fontSize:11,fontWeight:400,color:'var(--text-hint)'}}>— já desconta devolução externa · inclui vendedores que já saíram</span></CardTitle>
         {lf6 ? <Spinner /> : fat6Vend.chartData.length === 0 ? (
           <div style={{textAlign:'center',color:'var(--text-muted)',padding:24,fontSize:13}}>Sem dados no período.</div>
         ) : (
