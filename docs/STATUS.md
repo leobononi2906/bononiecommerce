@@ -60,6 +60,27 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-23 (2) — **"[SGA] Marketplace x Faturamento divergindo" — pendência do board pessoal
+  (Trello "Rotina Bononi" → Hoje) fecha como já corrigida em 17–21/09.** O card não tinha
+  descrição, só duas cifras (R$ 1.092.546,92 x R$ 518.654,14, razão ~2,11x). Não achei
+  snapshot histórico pra reproduzir os dois valores exatos, mas reproduzi o **mecanismo**:
+  simulando o método antigo de contar Marketplace (por `data_faturamento`, antes do fix de
+  17/09) contra Faturamento Vendedores no mesmo mês, a razão medida foi **2,26x**
+  (R$ 1.183.022,48 x R$ 522.826,71) — mesma ordem de grandeza e mesma direção do card.
+  - **Causa:** o SGA fatura pedido de marketplace em lote e atrasado (um pedido de abril pode
+    virar nota só em setembro). Contar pela data da nota fazia o mês corrente engolir calado o
+    backlog represado, inflando o Marketplace até ~2x contra um canal (Vendedores) sem esse
+    padrão de lote — daí o descasamento. **Já corrigido e publicado**: `comDataDePedido()`
+    (`src/hooks/use-faturamento.ts`) e `fetchMktComDataDePedido()` (`src/hooks/use-marketplace.ts`)
+    passaram a contar pela data do pedido (via `vw_ecom_docs_datas`), não pela emissão da nota —
+    ver entradas de 17/09 e 21/09 abaixo.
+  - **Ressalva, não corrigida:** a tabela "Vendas por produto — últimos 6 meses" da aba
+    Marketplace continua somando **bruto por `data_faturamento`** (de propósito — o rótulo já
+    avisa "bruto, sem descontar devolução"), enquanto o KPI do topo da mesma tela já é líquido
+    por pedido. Se a comparação que gerou o card foi entre essas duas, ainda existe; se foi entre
+    Home e Marketplace (o caso mais provável), já está fechada. `useMarketplaceProdutos6Meses`
+    em `src/hooks/use-marketplace.ts` é onde estender `comDataDePedido` se algum dia quiserem
+    unificar os dois.
 - 2026-09-23 — **Achado e religado o consumidor do `ecom_sdr_*` — pendência do board pessoal
   (Trello "Rotina Bononi" → Hoje, "[Atendimento IA]").** Reconferi contra produção o diagnóstico
   de 22/09 (§3.B): `norm_checkpoint` continuava travado em 2026-09-09T13:25:27, backlog tinha
