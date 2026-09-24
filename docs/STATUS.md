@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-09-23
+> Atualizado: 2026-09-24
 
 ## Documentação
 
