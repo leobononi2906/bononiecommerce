@@ -18,7 +18,7 @@
  * Supabase e qualquer outra origem passam direto: não é deste service worker
  * cuidar deles.
  */
-const CACHE = 'bononiecommerce-v1-20260924';
+const CACHE = 'bononiecommerce-v2-20260924';
 const FALLBACK = '/index.html';
 
 self.addEventListener('install', evento => {
