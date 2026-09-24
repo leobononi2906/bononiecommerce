@@ -64,6 +64,16 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-24 — **Service worker novo: pega versão nova sozinho, sem F5.** App Vite/React sem
+  service worker, risco baixo (bundles com hash) mas sem controle explícito de cache do
+  `index.html`. `public/sw.js` novo (network-first pra navegação/`index.html`, cache permanente
+  pra `/assets/*` hasheado, ignora chamadas a Supabase/outra origem), `src/lib/pwa.ts` registra
+  e recarrega sozinho no `controllerchange` (importado em `src/main.tsx`, pulado em dev).
+  `vercel.json` ganhou `Cache-Control: no-cache` em `index.html`/`sw.js` (rewrite de SPA e
+  headers existentes preservados). Roteamento (`BrowserRouter`) já mantinha a tela pela URL —
+  não mexido. Reclamação era geral do grupo (mesma correção replicada em `bononi-hub`,
+  `com_stonni`, `bononi-dashboard`, `parceiro-stonni`, `stonni-assistencia` e nos outros apps
+  Vite), modelo copiado do `bononi-exped`.
 - 2026-09-23 (3) — **Devolução aplicada onde ainda ficava bruto "de propósito", decisão do Leo
   ao revisar as pendências do board.** `Faturamento por vendedor — últimos 6 meses`
   (`Vendedores.tsx`) somava só `faturamento_doc`; agora soma também `useDevolucao6Meses()` como
