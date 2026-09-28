@@ -50,7 +50,10 @@ self.addEventListener('fetch', evento => {
       const guardado = await caches.match(req);
       if (guardado) return guardado;
       const resposta = await fetch(req);
-      if (resposta.ok) (await caches.open(CACHE)).put(req, resposta.clone());
+      // Asset de um deploy anterior não existe mais, e o rewrite de SPA da Vercel
+      // responde 200 com o index.html. Guardar isso "para sempre" prenderia o erro.
+      const html = (resposta.headers.get('content-type') || '').includes('text/html');
+      if (resposta.ok && !html) (await caches.open(CACHE)).put(req, resposta.clone());
       return resposta;
     })());
     return;

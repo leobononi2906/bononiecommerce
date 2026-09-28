@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-09-24
+> Atualizado: 2026-09-28
 
 ## Documentação
 
@@ -64,6 +64,8 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-09-28 — **Versão nova não recarrega mais na cara de quem está usando.** Regra do grupo desde hoje (skill `manter-tela-ao-atualizar`): sair versão nova não pode tirar a pessoa da tela. `src/lib/pwa.ts` dava `location.reload()` na hora do `controllerchange`. Agora a versão nova fica pronta e só entra com a aba oculta ou a pessoa parada há 10 min, e nunca com janela aberta ou campo preenchido em foco. O `controllerchange` da primeira instalação é ignorado. `vite:preloadError` recarrega na mesma URL (pedaço de um deploy que já saiu). `public/sw.js` deixou de guardar resposta `text/html` em `/assets/*`: a Vercel responde 200 com o `index.html` para asset que não existe mais, e isso ficava no cache para sempre. Mesmo conserto publicado antes no `bononi-exped` (`b9f543c`), onde foi testado no build com versão nova simulada.
+  - Drawer de Parceiros refletido em `?parceiro=<id>` / `?parceiro=novo`. Testado: abrir, F5, reabriu no mesmo parceiro. Fechar limpa a URL. O que foi digitado e não salvo não volta: quem protege é o reload não acontecer com `.parc-drawer` aberto. Pendente: filtros de Relatórios/Conferência Bling/Marketplace continuam só em memória.
 - 2026-09-24 — **Service worker novo: pega versão nova sozinho, sem F5.** App Vite/React sem
   service worker, risco baixo (bundles com hash) mas sem controle explícito de cache do
   `index.html`. `public/sw.js` novo (network-first pra navegação/`index.html`, cache permanente

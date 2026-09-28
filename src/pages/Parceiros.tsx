@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router'
 import { Plus, Search, X, Save, ChevronDown, MessageCircle, Users, Calendar, Trash2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { usePeriodo } from '../components/layout/AppShell'
@@ -428,7 +429,21 @@ export default function Parceiros() {
   const [loading,setLoading]     = useState(false)
   const [busca,setBusca]         = useState('')
   const [filtroStatus,setFiltroStatus] = useState<string>('Todos')
-  const [drawer,setDrawer]       = useState<Parceiro|null|undefined>(undefined) // undefined=fechado, null=novo
+  const [drawer,setDrawerState] = useState<Parceiro|null|undefined>(undefined) // undefined=fechado, null=novo
+  // Drawer refletido em `?parceiro=<id>` / `?parceiro=novo`: sai versão nova (ou F5)
+  // com o cadastro aberto e ele reabre no mesmo parceiro. O que estava digitado e
+  // não foi salvo NÃO volta — quem protege isso é o pwa.ts não recarregar com o
+  // drawer aberto (.parc-drawer).
+  const [searchParams,setSearchParams] = useSearchParams()
+
+  function setDrawer(v: Parceiro|null|undefined) {
+    setDrawerState(v)
+    setSearchParams(p=>{
+      if(v===undefined) p.delete('parceiro')
+      else p.set('parceiro', v===null ? 'novo' : String(v.id))
+      return p
+    },{replace:true})
+  }
 
   const carregar = useCallback(async()=>{
     setLoading(true)
@@ -450,6 +465,17 @@ export default function Parceiros() {
     setLoading(false)
   },[])
   useEffect(()=>{carregar()},[])
+
+  // Restaura o drawer da URL ao carregar — "novo" abre direto; um id só abre
+  // se o parceiro ainda existir na lista (excluído/errado não quebra a tela).
+  useEffect(()=>{
+    if(drawer!==undefined) return
+    const pParam = searchParams.get('parceiro')
+    if(!pParam) return
+    if(pParam==='novo'){ setDrawerState(null); return }
+    const achado = parceiros.find(p=>String(p.id)===pParam)
+    if(achado) setDrawerState(achado)
+  },[parceiros])
 
   const lista = parceiros.filter(p=>{
     const q=busca.toLowerCase()
