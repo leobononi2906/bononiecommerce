@@ -18,6 +18,10 @@ export function normMkt(nome: string): string {
   return (nome || '').trim().replace(/\s+/g, ' ').toUpperCase()
 }
 
+/** Canais que o Leo pediu para tirar das telas (29/09/2026: ML Battogo, sem vendas no mês). */
+const CANAIS_OCULTOS = new Set(['ML BATTOGO'])
+const canalOculto = (nome: string) => CANAIS_OCULTOS.has(normMkt(nome))
+
 // Faturamento por canal de marketplace, contado pela DATA DO PEDIDO (não pela data de
 // faturamento) — achado em 17/09/2026: o ERP fatura o marketplace em lote, e 726 dos 1.360
 // docs de setembro/26 eram na verdade pedido de abril a agosto (lote de 229 caiu de uma vez em
@@ -61,7 +65,7 @@ async function aggMktDev(start: string, end: string) {
     .range(de, ate))
   const m = new Map<string, number>()
   data.forEach((r: any) => {
-    if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+    if (getCanal(r.nome_vendedor || '') !== 'marketplace' || canalOculto(r.nome_vendedor)) return
     const k = normMkt(r.nome_vendedor)
     m.set(k, (m.get(k) || 0) + (Number(r.valor_total) || 0))
   })
@@ -161,7 +165,7 @@ export function useMktCanais() {
       .range(de, ate))
     const porId = new Map<number, string>()
     data.forEach((r: any) => {
-      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace' || canalOculto(r.nome_vendedor)) return
       if (r.id_vendedor != null) porId.set(Number(r.id_vendedor), r.nome_vendedor)
     })
     return [...porId.entries()]
@@ -250,11 +254,11 @@ export function useMarketplace6Meses() {
     ])
     const out: { data_faturamento: string; canal: string; fat: number }[] = []
     fatRows.forEach((r: any) => {
-      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace' || canalOculto(r.nome_vendedor)) return
       out.push({ data_faturamento: r.data_faturamento, canal: normMkt(r.nome_vendedor), fat: Number(r.faturamento_doc) || 0 })
     })
     devRows.forEach((r: any) => {
-      if (getCanal(r.nome_vendedor || '') !== 'marketplace') return
+      if (getCanal(r.nome_vendedor || '') !== 'marketplace' || canalOculto(r.nome_vendedor)) return
       out.push({ data_faturamento: r.data_devolucao, canal: normMkt(r.nome_vendedor), fat: -(Number(r.valor_total) || 0) })
     })
     return out
