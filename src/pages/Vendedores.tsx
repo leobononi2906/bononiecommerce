@@ -4,7 +4,7 @@ import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturam
 import { KpiCard, Spinner, Card, CardTitle, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
 import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
@@ -26,6 +26,7 @@ export default function Vendedores() {
   const { data: leads,                error: eleads, reload: rleads } = useLeads(periodo)
   const { data: umbler,               error: eumbler,reload: rumbler} = useUmblerVendedores()
   const [lastRefresh, setLastRefresh]    = useState(new Date())
+  const [aberto, setAberto]              = useState<string | null>(null)
 
   // Gráfico 6 meses por vendedor (canal vendedor) — top 10 nominais + Outros, inclui quem já saiu.
   // Líquido = bruto − devolução externa (mesmo critério do ranking abaixo e do card Home/Vendedores,
@@ -127,16 +128,20 @@ export default function Vendedores() {
 
   // Ranking de vendedores por faturamento
   const ranked = useMemo(() => {
-    const map = new Map<string,{nome:string;fat:number;docs:number;id:string}>()
+    const map = new Map<string,{nome:string;fat:number;docs:number;id:string;lista:any[]}>()
     fatPVend.forEach((r:any) => {
       if (getCanal(r.nome_vendedor||'') !== 'vendedor') return
       const k = String(r.id_vendedor)
       if (!erpAtivos.has(k)) return
-      const c = map.get(k)||{nome:r.nome_vendedor,fat:0,docs:0,id:k}
+      const c = map.get(k)||{nome:r.nome_vendedor,fat:0,docs:0,id:k,lista:[]}
       c.fat  += Number(r.faturamento_doc)
       c.docs++
+      c.lista.push(r)
       map.set(k,c)
     })
+    // Vendas de cada vendedor da mais recente para a mais antiga (desempate pelo nº do documento).
+    map.forEach(c => c.lista.sort((a,b) =>
+      String(b.data_faturamento).localeCompare(String(a.data_faturamento)) || Number(b.id_doc) - Number(a.id_doc)))
     return [...map.values()]
       .map(v => {
         const idUmbler = erpToUmbler.get(v.id)
@@ -244,8 +249,13 @@ export default function Vendedores() {
               : v.conversao >= 15 ? 'var(--green)'
               : v.conversao >= 7  ? 'var(--amber)'
               : 'var(--red)'
+            const expandido = aberto === v.id
+            const alternar = () => setAberto(expandido ? null : v.id)
             return (
-              <div key={v.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1px solid ${isTop?'var(--blue-dark)':'var(--border)'}`,background:isTop?'linear-gradient(135deg,var(--blue-50),var(--cyan-50))':'var(--surface)'}}>
+              <div key={v.id}>
+              <div role="button" tabIndex={0} aria-expanded={expandido} onClick={alternar}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar() } }}
+                style={{cursor:'pointer',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1px solid ${isTop?'var(--blue-dark)':'var(--border)'}`,background:isTop?'linear-gradient(135deg,var(--blue-50),var(--cyan-50))':'var(--surface)'}}>
                 <div style={{width:32,textAlign:'center'}}>
                   {i<3
                     ? <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:24,height:24,borderRadius:'50%',fontSize:13,fontWeight:700,background:medalBg[i],color:medalFg[i]}}>{i+1}</span>
@@ -279,6 +289,29 @@ export default function Vendedores() {
                   <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-mono)',color:isTop?'var(--blue-dark)':'var(--text-primary)'}}>{fmtBRL(v.liquido)}</div>
                   <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{fmtNum(v.docs)} pedidos</div>
                 </div>
+                <div style={{width:16,color:'var(--text-hint)'}}>
+                  {expandido ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                </div>
+              </div>
+              {expandido && (
+                <div style={{margin:'4px 0 6px 44px',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface)',maxHeight:320,overflowY:'auto'}}>
+                  <div style={{padding:'8px 14px',fontSize:11,fontWeight:600,textTransform:'uppercase',color:'var(--text-hint)',borderBottom:'1px solid var(--border)'}}>
+                    Vendas de {shortName(v.nome)} — da mais recente para a mais antiga
+                  </div>
+                  {v.lista.map((d:any) => {
+                    const [a,m,dia] = String(d.data_faturamento).slice(0,10).split('-')
+                    return (
+                      <div key={d.id} style={{display:'flex',justifyContent:'space-between',gap:12,padding:'7px 14px',fontSize:13,borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontFamily:'var(--font-mono)',color:'var(--text-muted)',minWidth:90}}>{dia}/{m}/{a}</span>
+                        <span style={{flex:1,color:'var(--text-primary)'}}>
+                          {d.tipo_doc} nº {d.id_doc}{d.id < 0 && <span style={{marginLeft:8,fontSize:11,color:'var(--text-hint)'}}>sem nota ainda</span>}
+                        </span>
+                        <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--text-primary)'}}>{fmtBRL(Number(d.faturamento_doc))}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               </div>
             )
           })}
