@@ -1,7 +1,7 @@
 # Meta — Atribuição, Relatórios de Campanha e CAPI
 
 > Documento de handoff. Explica **de onde vem** cada número de campanha do ecommerce, **como puxar** os relatórios, **como ler** a conversão sem errar, e o estado do **CAPI** (retorno de conversão pra Meta).
-> Última atualização: **01/09/2026**. Banco: Supabase `vishxwdxqiygbxmtpfoy`, schema `public`.
+> Última atualização: **01/09/2026** (§7 CAPI atualizada em **29/09/2026**). Banco: Supabase `vishxwdxqiygbxmtpfoy`, schema `public`.
 
 ---
 
@@ -124,10 +124,18 @@ Venda cai no banco → função cruza o telefone com umbler_lead_origem
 - **Edge Function `meta-capi-simular`** — cruza vendas atribuídas a anúncio (via `vw_capi_pendentes`), monta o evento `Purchase` (valor R$ + `ctwa_clid`, `action_source: business_messaging`) e grava em **`meta_capi_eventos`** com `status='simulado'`. **NÃO dispara nada** por padrão. Idempotente (constraint `chave_tel+event_name+event_time`). Rodada 01/09: 24 eventos simulados, R$153k.
 - Parâmetro opcional `?dias=N` (janela; padrão 30).
 
-**Como LIGAR o envio real (quando o Kauan mandar as credenciais):**
-1. Setar 3 secrets da Edge Function no Supabase: `META_CAPI_DATASET_ID`, `META_CAPI_TOKEN` (o de envio, `ads_management`), `META_CAPI_ENVIAR=true`.
-2. (Recomendado 1º) Setar também `META_CAPI_TEST_CODE=<código do Test Events>` e rodar a função uma vez — os eventos aparecem na aba **Test Events** do Meta sem contar como conversão real. Validar lá.
-3. Tirar o `META_CAPI_TEST_CODE` e agendar a função num cron (ex.: de hora em hora). Ela só envia eventos dos **últimos 7 dias** ainda `simulado`, e marca `enviado`/`erro` com a resposta do Meta em `meta_capi_eventos.resposta_meta`.
+**✅ Envio real ESCRITO E PUBLICADO (29/09/2026), ainda não ligado de verdade.** O código está em `supabase/functions/meta-capi-simular/index.ts` (mesma função; o nome ficou). Mudou em relação ao esboço de 01/09: teste fica `testado` e continua elegível ao envio real; `META_WABA_ID` entra no `user_data`; só 4xx vira `erro` (5xx e rede ficam na fila); sucesso exige `events_received >= 1`; `event_id` para dedupe; evento com mais de 7 dias vira `expirado`; teto de 200 por rodada; token no header. Status possíveis: `simulado` → `testado` → `enviado` | `erro` | `expirado`.
+
+**Autorização:** só chamada com o header `x-capi-key` igual ao secret `CAPI_CRON_KEY` envia. Qualquer outra só simula, porque a URL é pública e o JWT do gateway (anon) não é segredo. Não use a service key para isso: a que o CLI devolve não bateu com a `SUPABASE_SERVICE_ROLE_KEY` da função.
+
+**Como LIGAR o envio real (estado em 29/09: falta o 1º passo):**
+1. Setar 6 secrets da Edge Function no Supabase (só nomes aqui, valores direto no painel): `META_CAPI_DATASET_ID`, `META_WABA_ID`, `META_CAPI_TOKEN` (`ads_management`), `CAPI_CRON_KEY` (aleatório, já criado), `META_CAPI_ENVIAR=true` (já criado) e `META_CAPI_TEST_CODE`. Com `META_CAPI_ENVIAR=true` e qualquer um faltando, a função responde 500 listando o que falta (foi assim que se descobriu, em 29/09, que faltam os três primeiros).
+2. Rodar a função com `x-capi-key` e `META_CAPI_TEST_CODE` setado: os eventos vão ao **Test Events** e ficam `testado`. Validar lá.
+3. Tirar o `META_CAPI_TEST_CODE` e agendar a função num cron de hora em hora, com `x-capi-key` lido do Vault (o setting `app.service_role_key` veio vazio na sessão de 29/09; não contar com ele). Aplicar o cron em produção só depois de revisão.
+
+**🟣 Bloqueio em 29/09:** o Gustavo Pelissari Oenning é admin do app "Bononi Acessórios" (ID 494212378509321) mas não é membro do portfólio dono do app (`business_id` 177472179482774): as configurações da empresa dão "conteúdo indisponível" e o seletor de portfólios só lista o pessoal. Precisa do Kauan/admin do portfólio: adicionar o Gustavo como admin, ou mandar o ID do dataset, o ID da conta do WhatsApp Business e o código do Test Events, e gerar o token. O token não passa por chat. Card no Trello ("Rotina Bononi", Aguardando terceiro).
+
+**Fila hoje:** 36 eventos novos gravados como `simulado` em 29/09 (41 candidatos, 14 com venda nos últimos 7 dias). Nenhum enviado.
 
 **Tabelas/objetos do CAPI:** `meta_capi_eventos` (fila+log dos eventos), `vw_capi_pendentes` (vendas atribuídas prontas pra virar evento).
 
