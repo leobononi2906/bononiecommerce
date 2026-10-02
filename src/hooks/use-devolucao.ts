@@ -61,6 +61,11 @@ export function useDevolucaoPorVendedorPeriodo(periodo: Periodo) {
   return useQuery<any[]>(() => fetchDevolucaoPorVendedor(start, end), [start, end])
 }
 
+export function useDevolucaoPorVendedorPeriodoAnterior(periodo: Periodo) {
+  const { start, end } = getPreviousPeriodRange(periodo)
+  return useQuery<any[]>(() => fetchDevolucaoPorVendedor(start, end), [start, end])
+}
+
 // Item-level, para a página Relatórios (mesmos filtros de grupo/subgrupo/produto/vendedor das vendas).
 export interface DevItemRaw {
   id_vendedor: number

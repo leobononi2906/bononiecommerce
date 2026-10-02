@@ -7,7 +7,7 @@ export { useFaturamentoPeriodo, useFaturamentoPeriodoAnterior, useFaturamento6Me
   useFaturamentoSitePeriodo, useFaturamentoSitePeriodoAnterior, useFaturamentoSite6Meses,
   useFaturamentoVendedorSemNotaPeriodo, useFaturamentoVendedorSemNotaPeriodoAnterior,
   comDataDePedido } from './use-faturamento'
-export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses, useDevolucaoPorVendedorPeriodo, useDevolucaoItens } from './use-devolucao'
+export { useDevolucaoPeriodo, useDevolucaoPeriodoAnterior, useDevolucao6Meses, useDevolucaoPorVendedorPeriodo, useDevolucaoPorVendedorPeriodoAnterior, useDevolucaoItens } from './use-devolucao'
 export type { DevItemRaw } from './use-devolucao'
 export { useVendedores, useEsperaVendedor, useTempoResposta, useUmblerVendedores, useInternos } from './use-vendedores'
 export type { TempoRespVend } from './use-vendedores'

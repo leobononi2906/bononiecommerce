@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useDevolucao6Meses, useLeads, useUmblerVendedores, getCanal } from '../hooks/useData'
+import { useFaturamentoPeriodo, useFaturamentoVendedorSemNotaPeriodo, useFaturamento6Meses, useDevolucaoPorVendedorPeriodo, useDevolucao6Meses, useLeads, useUmblerVendedores, getCanal,
+  useFaturamentoPeriodoAnterior, useFaturamentoVendedorSemNotaPeriodoAnterior, useDevolucaoPorVendedorPeriodoAnterior, periodoLabelAnterior } from '../hooks/useData'
 import { KpiCard, Spinner, Card, CardTitle, AlertBanner, AvisoFalhaDeCarga, kpiValor } from '../components/ui'
 import { PageHeader, KpiGrid } from '../components/layout'
 import { fmtBRL, fmtNum, fmtPct, shortName } from '../lib/fmt'
@@ -25,6 +26,9 @@ export default function Vendedores() {
   const { data: devP,                 error: edp,    reload: rdp    } = useDevolucaoPorVendedorPeriodo(periodo)
   const { data: leads,                error: eleads, reload: rleads } = useLeads(periodo)
   const { data: umbler,               error: eumbler,reload: rumbler} = useUmblerVendedores()
+  const { data: fatAnt,  error: efant,  reload: rfant  } = useFaturamentoPeriodoAnterior(periodo)
+  const { data: vsfAnt,  error: evsfant,reload: rvsfant} = useFaturamentoVendedorSemNotaPeriodoAnterior(periodo)
+  const { data: devAnt,  error: edant,  reload: rdant  } = useDevolucaoPorVendedorPeriodoAnterior(periodo)
   const [lastRefresh, setLastRefresh]    = useState(new Date())
   const [aberto, setAberto]              = useState<string | null>(null)
 
@@ -66,7 +70,7 @@ export default function Vendedores() {
   }, [fat6, dev6])
 
   useEffect(() => {
-    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rvsfp(); rdp(); rleads(); rumbler(); rf6(); rdev6() }, 5*60*1000)
+    const t = setInterval(() => { setLastRefresh(new Date()); rfp(); rvsfp(); rdp(); rleads(); rumbler(); rf6(); rdev6(); rfant(); rvsfant(); rdant() }, 5*60*1000)
     return () => clearInterval(t)
   }, [])
 
@@ -171,6 +175,35 @@ export default function Vendedores() {
              leadsTotal, leadsVinculados, leadsSemVinculo, conv }
   }, [ranked, leads, umbler])
 
+  // Mesmo recorte do período anterior (mesmo filtro de vendedor ativo e não-interno). No "Mês
+  // atual" o anterior são os mesmos dias do mês passado — ver getPreviousPeriodRange.
+  const kpisAnt = useMemo(() => {
+    let total = 0, docs = 0, devolucao = 0
+    ;[...(fatAnt||[]), ...(vsfAnt||[])].forEach((r:any) => {
+      if (!erpAtivos.has(String(r.id_vendedor))) return
+      if (getCanal(nomeAtivoPorId.get(String(r.id_vendedor)) || r.nome_vendedor || '') !== 'vendedor') return
+      total += Number(r.faturamento_doc); docs++
+    })
+    ;(devAnt||[]).forEach((r:any) => { if (r.id_vendedor != null && erpAtivos.has(String(r.id_vendedor))) devolucao += Number(r.valor_total)||0 })
+    return { total, docs, liquido: total - devolucao }
+  }, [fatAnt, vsfAnt, devAnt, erpAtivos, nomeAtivoPorId])
+
+  // "+R$ 12k (+8%) vs anterior" — mesmo texto da Home
+  function cmp(atual: number, ant: number, fmt: (n:number)=>string = fmtBRL): { sub: string; trend: 'up'|'down'|'neutral' } {
+    const d = atual - ant
+    if (ant === 0) return { sub: 'sem base anterior', trend: 'neutral' }
+    const pct = (d / ant) * 100
+    const sinal = d >= 0 ? '+' : '−'
+    return { sub: `${sinal}${fmt(Math.abs(d))} (${sinal}${Math.abs(pct).toFixed(0)}%) vs anterior`, trend: d > 0 ? 'up' : d < 0 ? 'down' : 'neutral' }
+  }
+  const erroAnt = efant || evsfant
+  const cBruto = erroAnt ? undefined : cmp(kpis.total, kpisAnt.total)
+  const cLiq   = erroAnt || edant ? undefined : cmp(kpis.liquido, kpisAnt.liquido)
+  const cDocs  = erroAnt ? undefined : cmp(kpis.docs, kpisAnt.docs, fmtNum)
+
+  const hoje = new Date()
+  const mesParcial = periodo === 'mes_atual' && hoje.getDate() < new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate()
+
   // Sem emoji (regra do design system): posição 1-3 ganha selo numerado com cor de destaque,
   // não um ícone que substitui o número — a posição continua legível sem depender só da cor.
   const medalBg = ['var(--feedback-warning-bg)', 'var(--surface-sunken)', 'var(--feedback-warning-bg)']
@@ -199,7 +232,18 @@ export default function Vendedores() {
         { nome: 'Vínculos Umbler', error: eumbler, reload: rumbler },
         { nome: 'Faturamento 6 meses', error: ef6, reload: rf6 },
         { nome: 'Devolução 6 meses', error: edev6, reload: rdev6 },
+        { nome: 'Faturamento anterior', error: efant, reload: rfant },
+        { nome: 'Sem nota anterior', error: evsfant, reload: rvsfant },
+        { nome: 'Devolução anterior', error: edant, reload: rdant },
       ]} />
+
+      {mesParcial && (
+        <div style={{marginBottom:14}}>
+          <AlertBanner type="warning">
+            <span>Mês em andamento — a comparação "vs anterior" é com os <strong>mesmos dias do mês passado</strong> ({periodoLabelAnterior('mes_atual')}).</span>
+          </AlertBanner>
+        </div>
+      )}
 
       <div style={{marginBottom:14}}>
         <AlertBanner type="warning">
@@ -212,12 +256,12 @@ export default function Vendedores() {
       </div>
 
       <KpiGrid cols={4}>
-        <KpiCard label="Faturamento (bruto)" value={kpiValor(efp, lfp, fmtBRL(kpis.total))} />
+        <KpiCard label="Faturamento (bruto)" value={kpiValor(efp, lfp, fmtBRL(kpis.total))} sub={cBruto?.sub} trend={cBruto?.trend} />
         <KpiCard label="Devolução externa"   value={kpiValor(edp, lfp, '− '+fmtBRL(kpis.devolucao))}
           sub={!edp&&kpis.total>0?`${(kpis.devolucao/kpis.total*100).toFixed(1)}% do bruto`:undefined}
           trend={kpis.devolucao>0?'down':'neutral'} />
-        <KpiCard label="Faturamento líquido" value={kpiValor(efp||edp, lfp, fmtBRL(kpis.liquido))} highlight />
-        <KpiCard label="Pedidos (período)"    value={kpiValor(efp, lfp, fmtNum(kpis.docs))} />
+        <KpiCard label="Faturamento líquido" value={kpiValor(efp||edp, lfp, fmtBRL(kpis.liquido))} highlight sub={cLiq?.sub} trend={cLiq?.trend} />
+        <KpiCard label="Pedidos (período)"    value={kpiValor(efp, lfp, fmtNum(kpis.docs))} sub={cDocs?.sub} trend={cDocs?.trend} />
       </KpiGrid>
 
       <KpiGrid cols={2}>
