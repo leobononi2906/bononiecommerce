@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-09-29
+> Atualizado: 2026-10-02
 
 ## Documentação
 
@@ -10,6 +10,7 @@
 | `docs/sql/2026-09-17_preflight_vw_ecom_docs_datas.sql` + `2026-09-17_ensaio_aceite_vw_ecom_docs_datas.sql` | pré-voo e teste de aceite da view `vw_ecom_docs_datas` (data de criação do pedido a nível de documento) | antes de mexer em `use-faturamento.ts` ou em qualquer card que compare "faturado" com "pedido feito" |
 | `docs/2026-09-17-design-system.md` | receituário do design system Stonni interno aplicado (tokens, ponte, o que ficou de fora) | antes de mexer em cor/fonte/medida em qualquer tela, ou antes de criar tela nova |
 | `docs/2026-09-22-diagnostico-atendimento-vendedor.md` | diagnóstico da planilha manual de atendimento x app: fecha quem são os 9 nomes (Guilherme=atacado, Blas=ex-funcionário), descarta vínculo Umbler pra Henrique Trombini/Michael (já decidido antes) e Matheus/Klevertton (ex-funcionários), e abre 2 itens reais: `convertido` nunca preenchido em `ecom_leads`, `ecom_sdr_atendimentos` parado desde 09/09 | antes de propor vincular qualquer vendedor novo em `ecom_umbler_vendedor`, ou antes de mexer na métrica de conversão do Atendimento |
+| `docs/sql/2026-09-28_correcao_vendedores_interno.sql` + `2026-09-28_preflight_vendedores_interno.sql` | correção aplicada em 28/09: 5 vendedores com `interno=true` zeravam o card Faturamento Vendedores; o pré-voo lista os 6 vínculos | quando o card de vendedor sair zerado, ou antes de mexer no selo "Interno" |
 
 ## O que é
 Dashboard do e-commerce Stonni: faturamento por canal, marketing (Meta Ads), marketplace (ML/Shopee), atendimento (funil + tempo de resposta) e relatórios. App de **baixo uso** — o Leo autorizou "mandar bala" (quebrar não é problema, ≠ atacado).
@@ -61,11 +62,13 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
       devolveu mais do que vendeu) — trocado `v > 0` por `v !== 0` nas 3 células que faziam isso.
 
 ## Dívidas e armadilhas conhecidas
+- **"Interno" em Configurações não é hierarquia nem acesso** — quer dizer "não é vendedor" (ex.: KAUAN MKT). Quem está marcado some do Faturamento Vendedores, da tela Vendedores, do funil, dos leads e do tempo de resposta. Marcar um vendedor de verdade zera o que é dele **sem erro nenhum**; em 28/09 os 5 estavam marcados e o card saiu R$ 0,00. Card de vendedor zerado: olhar `select id_vendedor_erp, ativo, interno from ecom_umbler_vendedor` antes de suspeitar do replicador.
 - **Bundle antigo em cache no navegador** foi a causa real de vários "bugs" que o Leo viu (Home em branco, #id/produtos vazios) — **hard refresh / redeploy** resolve; as queries e CORS estão OK.
 - TMR antiga (`vw_ecom_espera_vendedor`, filtro `etapa='ECOMMERCE...'`) **morreu na migração Umbler** — não usar; casar por telefone dá tempos absurdos.
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-10-02 — **"Mês atual" compara com os mesmos dias do mês passado, não com o mês cheio.** Dia 2 comparava 01–02/10 contra setembro inteiro (−94%/−96%). `getPreviousPeriodRange('mes_atual')` agora vai do dia 1 até o mesmo dia do mês passado (limitado ao último dia dele: 31/10 → 01–30/09); `periodoLabelAnterior` mostra as datas. Avisos da Home e do Marketplace reescritos. Conferido local pelo Leo.
 - 2026-09-29 — **CAPI da Meta: a função de envio real está no ar, mas não enviou nada — falta acesso ao portfólio da Meta.** Pedido: informar à Meta as vendas de leads do Click-to-WhatsApp que a Umbler traz. Já existia a simulação (01/09, 24 eventos, nenhuma linha enviada); o esboço de envio real dentro dela tinha falhas, e o código não estava em nenhum repo (baixado com `functions download`). Reescrita em `supabase/functions/meta-capi-simular/index.ts` (**ainda não commitada**):
   - **O buraco:** com `META_CAPI_TEST_CODE` o evento virava `enviado`, então ao tirar o código ele nunca iria de verdade; faltava `whatsapp_business_account_id` no `user_data` (exigido no CTWA); 5xx e erro de rede viravam `erro` definitivo; `event_time` de meio-dia UTC do dia da venda podia cair no futuro.
   - **Agora:** teste fica `testado` e continua elegível; `META_WABA_ID` entra no envio; só 4xx vira `erro`; sucesso exige `events_received >= 1`; horário limitado ao agora; `event_id` para dedupe; evento com mais de 7 dias vira `expirado`; teto de 200 por rodada; token no header; Graph v23.0 configurável.
@@ -73,9 +76,10 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
   - **Medido:** `vw_capi_pendentes` tem 80 linhas, 14 com venda nos últimos 7 dias. A rodada de 29/09 gravou 36 eventos novos como `simulado` (41 candidatos). Teste de envio: `500 configuracao incompleta` faltando `META_CAPI_DATASET_ID`, `META_WABA_ID`, `META_CAPI_TOKEN`; `CAPI_CRON_KEY` e `META_CAPI_ENVIAR` conferidos por a função não listá-los. **Nada foi enviado ao Meta.**
   - **Ficou de fora:** cron de hora em hora (não criado; o setting `app.service_role_key` veio vazio na sessão, e o cron do CAPI vai usar `x-capi-key` via Vault); validação no Test Events; commit e push (uma publicação só quando o CAPI fechar). O achado de `meta_capi_eventos` sem RLS ficou em Pendências.
   - **Aprendizado:** o classificador barrou a busca de credencial pelo CLI; o caminho foi um secret próprio. O clique do Trello sobrescreveu a área de transferência, então a `CAPI_CRON_KEY` tem que ser regerada ao retomar.
+- 2026-09-28 (2) — **"Faturamento Vendedores" zerado (R$ 0,00 no mês e "sem base anterior"): os 5 vendedores estavam marcados "Interno".** Não era o problema da Expedição (tipo de saída renomeado no SGA): `tipo_saida='ONLINE'` segue com 3.379 docs desde 01/08, última de 28/09, e os vendedores faturando normal. A causa era dado: os 6 vínculos de `ecom_umbler_vendedor` estavam com `interno=true`, então o filtro `ativo && !interno` (Home, Vendedores) ficava vazio e descartava toda linha de vendedor em silêncio — nos dois períodos, por isso nem o comparativo aparecia. Os leads deles também saíam do funil. **Aplicado em produção** (`docs/sql/2026-09-28_correcao_vendedores_interno.sql`, pré-voo → ensaio → escrita, returning = 5 = pré-voo): `interno=false` para ALEX (69260), GIULIANO (39676), MAYKELL (85193), VITOR (55417) e PEDRO (88118); KAUAN MKT (id 0) segue interno. Valor esperado no card: ≈ R$ 673 mil em set, ≈ R$ 685 mil em ago. Sem deploy (só dado). **Quem marcou e quando não dá para saber** — a tabela não tem `updated_at` e o botão de Configurações grava sem log. Volta: clicar de novo no selo "Interno" em Configurações.
 - 2026-09-28 — **Versão nova não recarrega mais na cara de quem está usando.** Regra do grupo desde hoje (skill `manter-tela-ao-atualizar`): sair versão nova não pode tirar a pessoa da tela. `src/lib/pwa.ts` dava `location.reload()` na hora do `controllerchange`. Agora a versão nova fica pronta e só entra com a aba oculta ou a pessoa parada há 10 min, e nunca com janela aberta ou campo preenchido em foco. O `controllerchange` da primeira instalação é ignorado. `vite:preloadError` recarrega na mesma URL (pedaço de um deploy que já saiu). `public/sw.js` deixou de guardar resposta `text/html` em `/assets/*`: a Vercel responde 200 com o `index.html` para asset que não existe mais, e isso ficava no cache para sempre. Mesmo conserto publicado antes no `bononi-exped` (`b9f543c`), onde foi testado no build com versão nova simulada.
   - Drawer de Parceiros refletido em `?parceiro=<id>` / `?parceiro=novo`. Testado: abrir, F5, reabriu no mesmo parceiro. Fechar limpa a URL. O que foi digitado e não salvo não volta: quem protege é o reload não acontecer com `.parc-drawer` aberto. Pendente: filtros de Relatórios/Conferência Bling/Marketplace continuam só em memória.
-- 2026-09-24 — **Service worker novo: pega versão nova sozinho, sem F5.** App Vite/React sem
+- 2026-09-24 — (`f6723e3` reverte o bump de teste do `sw.js`) **Service worker novo: pega versão nova sozinho, sem F5.** App Vite/React sem
   service worker, risco baixo (bundles com hash) mas sem controle explícito de cache do
   `index.html`. `public/sw.js` novo (network-first pra navegação/`index.html`, cache permanente
   pra `/assets/*` hasheado, ignora chamadas a Supabase/outra origem), `src/lib/pwa.ts` registra

@@ -11,6 +11,7 @@ import { KpiCard, Badge, Spinner, Card, CardTitle, SectionLabel, AlertBanner, Av
 import { PageHeader, KpiGrid, Row, Col } from '../components/layout'
 import { fmtBRL, fmtNum, shortName } from '../lib/fmt'
 import { usePeriodo } from '../components/layout/AppShell'
+import { periodoLabelAnterior } from '../lib/query'
 import type { Periodo } from '../types'
 
 // Tooltip do gráfico por vendedor: só mostra quem teve faturamento no mês (esconde os zerados),
@@ -340,7 +341,7 @@ export default function Home() {
       {mesParcial && !lfp && (
         <div style={{marginBottom:14}}>
           <AlertBanner type="warning" icon={<Calendar size={14} aria-hidden="true" />}>
-            <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com o mês passado <strong>cheio</strong>, então a queda é esperada. Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
+            <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação "vs anterior" é com os <strong>mesmos dias do mês passado</strong> ({periodoLabelAnterior('mes_atual')}). Escolha "Mês anterior" no filtro para comparar meses fechados.</span>
           </AlertBanner>
         </div>
       )}

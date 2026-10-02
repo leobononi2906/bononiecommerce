@@ -156,7 +156,9 @@ function periodoAnteriorEquivalente(inicio: string, fim: string): { start: strin
 export function getPreviousPeriodRange(periodo: Periodo): { start: string; end: string } {
   if (typeof periodo === 'object') return periodoAnteriorEquivalente(periodo.inicio, periodo.fim)
   const now = new Date(), y = now.getFullYear(), m = now.getMonth()
-  if (periodo === 'mes_atual')    return { start: new Date(y,m-1,1).toISOString().slice(0,10), end: new Date(y,m,0).toISOString().slice(0,10) }
+  // Mês atual compara com os mesmos dias do mês passado (dia 2 → 01–02 do mês passado), não com o
+  // mês cheio. Mês passado mais curto limita no último dia dele (31/10 → 01–30/09).
+  if (periodo === 'mes_atual')    return { start: new Date(y,m-1,1).toISOString().slice(0,10), end: new Date(y,m-1,Math.min(now.getDate(), new Date(y,m,0).getDate())).toISOString().slice(0,10) }
   if (periodo === 'mes_anterior') return { start: new Date(y,m-2,1).toISOString().slice(0,10), end: new Date(y,m-1,0).toISOString().slice(0,10) }
   if (periodo === '3_meses')      return { start: new Date(y,m-5,1).toISOString().slice(0,10), end: new Date(y,m-2,0).toISOString().slice(0,10) }
   return { start: new Date(y,m-11,1).toISOString().slice(0,10), end: new Date(y,m-5,0).toISOString().slice(0,10) }
@@ -179,6 +181,10 @@ export function periodoLabel(periodo: Periodo): string {
 export function periodoLabelAnterior(periodo: Periodo): string {
   if (typeof periodo === 'object') {
     const ant = periodoAnteriorEquivalente(periodo.inicio, periodo.fim)
+    return `${fmtCurta(ant.start)}–${fmtCurta(ant.end)}`
+  }
+  if (periodo === 'mes_atual') {
+    const ant = getPreviousPeriodRange(periodo)
     return `${fmtCurta(ant.start)}–${fmtCurta(ant.end)}`
   }
   return ROTULO_ANT_FIXO[periodo]

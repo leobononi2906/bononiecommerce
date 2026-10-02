@@ -167,7 +167,7 @@ export default function Marketplace() {
       {mesParcial && !loading && canais.length > 0 && (
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--feedback-warning-border)', borderRadius: 'var(--radius)', padding: '9px 14px', marginBottom: 14, fontSize: 12.5 }}>
           <Calendar size={14} style={{flexShrink:0, marginTop:2}} aria-hidden="true" />
-          <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação é com o mês anterior <strong>cheio</strong>, então as quedas são esperadas. Para comparar meses fechados, escolha "Mês anterior" no filtro.</span>
+          <span>Mês em andamento ({diaAtual}/{diasNoMes} dias) — a comparação é com os <strong>mesmos dias do mês passado</strong> ({periodoLabelAnterior('mes_atual')}). Para comparar meses fechados, escolha "Mês anterior" no filtro.</span>
         </div>
       )}
 
