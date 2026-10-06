@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, ChevronRight, PackageSearch, Handshake, FileText, TrendingUp } from 'lucide-react'
+import { Home, MessageSquare, Megaphone, ShoppingBag, Users, Settings, ChevronRight, PackageSearch, Handshake, FileText, TrendingUp, LogOut } from 'lucide-react'
+import { useAuth } from '../../lib/auth'
 import logoMark from '../../assets/stonni-logo-mark.png'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; sub?: boolean; parent?: string }
@@ -22,6 +23,7 @@ const MARKETING_PATHS = ['/campanhas', '/campanhas-roi', '/parceiros']
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const { nome, email, logout } = useAuth()
   const location = useLocation()
   const isMarketingActive = MARKETING_PATHS.includes(location.pathname)
 
@@ -70,6 +72,14 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Usuário + sair */}
+      <div style={{ padding: collapsed ? '8px 0' : '8px 14px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, justifyContent: collapsed ? 'center' : 'space-between' }}>
+        {!collapsed && <span title={email} style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>}
+        <button onClick={logout} title="Sair" aria-label="Sair" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-hint)', display: 'flex', padding: 4 }}>
+          <LogOut size={14} />
+        </button>
+      </div>
 
       {/* Collapse */}
       <button onClick={() => setCollapsed(c => !c)} style={{ margin: '0 0 10px', padding: '6px', alignSelf: 'center', border: '1px solid var(--border)', borderRadius: 7, background: 'transparent', cursor: 'pointer', color: 'var(--text-hint)', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>

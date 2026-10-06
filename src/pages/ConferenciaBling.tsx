@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { RefreshCw, Search, Square, AlertTriangle, Check } from 'lucide-react'
 import { fmtBRLFull, fmtNum } from '../lib/fmt'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPA_KEY } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import { usePeriodo } from '../components/layout/AppShell'
 import type { Periodo } from '../types'
 
@@ -51,6 +52,7 @@ function statusDe(it: Item) {
 }
 
 export default function ConferenciaBling() {
+  const { token } = useAuth()
   const [dados, setDados] = useState<Item[]>([])
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -106,7 +108,11 @@ export default function ConferenciaBling() {
     try {
       while (true) {
         if (pararRef.current) break
-        const r = await fetch(`${FUNC_URL}?acao=conferir&pagina=${pagina}`)
+        // Token do usuário logado. Antes ia sem credencial nenhuma: a função só
+        // respondia por estar com Verify JWT desligado.
+        const r = await fetch(`${FUNC_URL}?acao=conferir&pagina=${pagina}`, {
+          headers: { apikey: SUPA_KEY, Authorization: `Bearer ${token ?? SUPA_KEY}` },
+        })
         const j = await r.json()
         if (j.erro) throw new Error(j.erro)
         acc.push(...(j.itens ?? [])); setDados([...acc]); setPaginas(pagina)

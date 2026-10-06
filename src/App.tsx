@@ -1,4 +1,7 @@
 import { Routes, Route } from 'react-router'
+import { Loader2 } from 'lucide-react'
+import { AuthProvider, useAuth } from './lib/auth'
+import { Login, SemAcesso } from './components/Login'
 import AppShell from './components/layout/AppShell'
 import HomePg from './pages/Home'
 import Atendimento from './pages/Atendimento'
@@ -11,7 +14,21 @@ import Relatorios from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
 import ConferenciaBling from './pages/ConferenciaBling'
 
-export default function App() {
+function Rotas() {
+  const { session, carregando, temAcesso } = useAuth()
+
+  if (carregando) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Sem Tailwind neste app: a animação é inline (keyframes junto). */}
+        <style>{'@keyframes ecom-giro { to { transform: rotate(360deg); } }'}</style>
+        <Loader2 size={24} style={{ color: 'var(--blue-dark)', animation: 'ecom-giro 0.8s linear infinite' }} />
+      </div>
+    )
+  }
+  if (!session) return <Login />
+  if (!temAcesso) return <SemAcesso />
+
   return (
     <Routes>
       <Route element={<AppShell />}>
@@ -27,5 +44,13 @@ export default function App() {
         <Route path="configuracoes" element={<Configuracoes />} />
       </Route>
     </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Rotas />
+    </AuthProvider>
   )
 }
