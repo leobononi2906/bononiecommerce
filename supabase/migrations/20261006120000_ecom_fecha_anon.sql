@@ -1,4 +1,6 @@
--- 20261006120000_ecom_fecha_anon.sql  — RASCUNHO PARA REVISÃO (não aplicada)
+-- 20261006120000_ecom_fecha_anon.sql
+-- aplicada em produção em 2026-10-06, depois do app com login no ar (anon: 0 das 23 relações com permissão;
+-- 401 pela chave pública; dashboard conferido logado em 6 telas)
 --
 -- O que faz:
 --   1. Cria ecom_tem_acesso() — mesma regra do dp_tem_acesso() do RH, para o módulo 'ecommerce'
