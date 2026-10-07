@@ -23,7 +23,7 @@
 //
 // Uma chamada só cobre a janela inteira: `time_increment=1` já devolve uma linha por dia.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
