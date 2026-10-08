@@ -46,7 +46,7 @@ async function getAccessToken(): Promise<string> {
   const basic = btoa(`${Deno.env.get("BLING_CLIENT_ID")}:${Deno.env.get("BLING_CLIENT_SECRET")}`);
   const r = await fetch(`${BLING}/oauth/token`, {
     method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { "enable-jwt": "1", Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh }),
   });
   if (!r.ok) throw new Error(`Bling token: ${r.status} ${await r.text()}`);
@@ -60,7 +60,7 @@ async function getAccessToken(): Promise<string> {
 }
 
 async function blingGet(token: string, path: string) {
-  const r = await fetch(`${BLING}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const r = await fetch(`${BLING}${path}`, { headers: { "enable-jwt": "1", Authorization: `Bearer ${token}` } });
   if (!r.ok) throw new Error(`GET ${path}: ${r.status} ${await r.text()}`);
   return r.json();
 }
@@ -77,14 +77,14 @@ async function atualizarPreco(token: string, id: number, novoPreco: number) {
     delete full[campo];
   }
   const r = await fetch(`${BLING}/produtos/${id}`, {
-    method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    method: "PUT", headers: { "enable-jwt": "1", Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(full),
   });
   if (!r.ok) throw new Error(`PUT preco ${id}: ${r.status} ${await r.text()}`);
 }
 async function lancarBalanco(token: string, idProduto: number, idDeposito: number, qtd: number) {
   const r = await fetch(`${BLING}/estoques`, {
-    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    method: "POST", headers: { "enable-jwt": "1", Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ produto: { id: idProduto }, deposito: { id: idDeposito }, operacao: "B", quantidade: qtd }),
   });
   if (!r.ok) throw new Error(`balanco ${idProduto}: ${r.status} ${await r.text()}`);
