@@ -197,13 +197,36 @@ async function sync(token: string, modoReal: boolean, paginaInicial: number, idD
     duracao_seg: Math.round((Date.now() - t0) / 100) / 10,
   };
 
-  await fetch(`${SB_URL}/rest/v1/bling_sync_log`, {
-    method: "POST",
-    headers: sbHeaders,
-    body: JSON.stringify({ ...resumo, detalhes: det, snapshot: todos }),
-  });
+  // `proxima_pagina` não é coluna de bling_sync_log: mandá-la fazia o PostgREST recusar a linha inteira
+  // (400) e, como a resposta não era conferida, o log nunca gravou (0 linhas desde 06/2026).
+  const { proxima_pagina: _ignorada, ...linhaLog } = resumo;
+  let logGravado = true, logErro = "";
+  try {
+    const rl = await fetch(`${SB_URL}/rest/v1/bling_sync_log`, {
+      method: "POST",
+      headers: sbHeaders,
+      body: JSON.stringify({ ...linhaLog, detalhes: det, snapshot: todos }),
+    });
+    if (!rl.ok) { logGravado = false; logErro = `${rl.status} ${await rl.text()}`; }
+  } catch (e) { logGravado = false; logErro = String(e); }
 
-  return resumo;
+  // Retomada: a execução tem orçamento de 110 s e o catálogo tem ~100 páginas. Guarda onde parou para a
+  // próxima rodada do cron continuar dali; ao concluir, volta para a página 1.
+  if (modoReal) {
+    const proxima = concluido ? 1 : pagina;
+    const rp = await fetch(`${SB_URL}/rest/v1/ped_configuracoes?chave=eq.bling_sync_proxima_pagina`, {
+      method: "PATCH", headers: { ...sbHeaders, Prefer: "return=representation" }, body: JSON.stringify({ valor: String(proxima) }),
+    });
+    const alteradas = rp.ok ? (await rp.json()).length : 0;
+    if (!alteradas) {
+      await fetch(`${SB_URL}/rest/v1/ped_configuracoes`, {
+        method: "POST", headers: sbHeaders,
+        body: JSON.stringify({ chave: "bling_sync_proxima_pagina", valor: String(proxima), descricao: "Próxima página do bling-sync (retomada entre rodadas do cron)", tipo: "number" }),
+      });
+    }
+  }
+
+  return { ...resumo, log_gravado: logGravado, ...(logErro ? { log_erro: logErro.slice(0, 300) } : {}) };
 }
 
 // ── Porta de entrada (06/10/2026) ─────────────────────────────────────────────
@@ -262,7 +285,9 @@ serve(async (req) => {
       const pedidoReal = url.searchParams.get("modo") === "real";
       const ativo = (cfg["bling_sync_ativo"] ?? "false") === "true";
       const idDeposito = cfg["bling_deposito_id"] ?? "";
-      const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? "1"));
+      // Sem `pagina` explícita, o modo real continua de onde a rodada anterior parou.
+      const paginaParam = url.searchParams.get("pagina");
+      const pagina = Math.max(1, Number(paginaParam ?? (pedidoReal ? (cfg["bling_sync_proxima_pagina"] ?? "1") : "1")) || 1);
       if (pedidoReal && !ativo)
         return json({ erro: "modo=real pedido, mas bling_sync_ativo=false. Ligue o interruptor quando confiar no dry-run." }, 400);
       if (pedidoReal && ativo && !idDeposito)
