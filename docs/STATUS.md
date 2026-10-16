@@ -1,6 +1,6 @@
 # STATUS — E-commerce Stonni (Dashboard)
 
-> Atualizado: 2026-10-06
+> Atualizado: 2026-10-16
 
 ## Documentação
 
@@ -69,6 +69,7 @@ Migrado pro **intake único** (passo 3): canais OFICIAL LV/LF → edge `umbler-i
 - Tabelas `ecom_umbler_conversas/mensagens` e `ecom_debug_webhook` (1,4 GB) foram dropadas/truncadas — o raw agora é `umbler_eventos.payload`.
 
 ## Dev-log
+- 2026-10-16 — **A aba do navegador diz "E-commerce Stonni", não mais "Stonni Dashboard".** Segue o cartão do Hub, que passou de "E-commerce" para "E-commerce Stonni" para não se confundir com o E-commerce Bononi (a loja própria, bononi-vitrine). Só o `<title>` do `index.html` mudou; o `name` do `package.json` (`stonni-dashboard`) ficou como está.
 - 2026-10-08 — **Bling: migração para JWT (prazo 15/10/2026).** Header `enable-jwt: 1` em `bling-sync` (renovação e chamadas; função quebrada desde 09/06, não serve de prova). Sem o header a renovação devolve token opaco de novo; com ele, a próxima renovação já grava JWT (conferir pelo formato: 3 partes separadas por ponto). Commit local; publicar com `--no-verify-jwt`.
 - 2026-10-06 — **O app ganhou login** (era aberto, sem nenhuma tela de entrada). Pedido: fechar a leitura/escrita anônima das tabelas `ecom_*` (auditoria do `bononi-vendas` achou `ecom_leads` legível com a chave pública: 29.653 leads). Mapeamento: o app lê ~25 relações e escreve em 6 tabelas, tudo com a chave anon. Feito em código: `src/lib/auth.tsx` (sessão Supabase, acesso por `user_metadata`: admin global, `admin_modulos` ou `modulos` com `ecommerce`; uma renovação do token antes de barrar, para quem acabou de ganhar o módulo), `src/components/Login.tsx` (login e "Sem acesso", mesmo e-mail e senha do Hub), gate no `App.tsx`, botão Sair na `Sidebar`, e a Conferência Bling passa o token do usuário ao `bling-sync`. As consultas já saem com o token do usuário porque o `supabase-js` usa a sessão. **Quem usava o dashboard sem entrar agora precisa de login e do módulo `ecommerce` no Hub** (18 de 60 usuários têm acesso hoje). Conferido no navegador contra o banco de teste com sessão simulada (login → entra → menu com o nome); **não testado com login real**. A migration que fecha o anon está pronta e **não aplicada** (ver Pendências). Sem Tailwind aqui: o spinner usa animação inline, não `animate-spin`.
 - 2026-10-02 (2) — **Vendedores ganhou "vs anterior"** nos cards Bruto, Líquido e Pedidos, com a mesma regra de período (mesmos dias do mês passado no "Mês atual") e o mesmo filtro de vendedor ativo/não-interno do ranking. Hook novo `useDevolucaoPorVendedorPeriodoAnterior`. Conferido local pelo Leo.
