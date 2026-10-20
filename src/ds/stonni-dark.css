@@ -1,0 +1,111 @@
+/* Stonni — tema escuro (override dos APELIDOS semânticos de stonni-ds.css).
+   Ativado por <html data-theme="dark"> (ds/bononi-tema.js, kit compartilhado do grupo).
+   Paleta derivada do índigo/ciano da marca sobre neutro frio (base = --neutral-950 #0C1116).
+   NÃO muda primitivas (--blue-*, --indigo-*, --cyan-*, --neutral-*): quem usa primitiva
+   direto não troca de tema — use sempre o apelido. Aliases que as pontes dos apps usam
+   (--blue-dark = "tinta/ênfase", --blue-mid) são remapeados aqui porque nos apps viram texto
+   e série de gráfico. Regra: texto sobre fundo de marca continua branco (--text-on-brand).
+   Copiar este arquivo VERBATIM para os outros apps Stonni (com_stonni, stonni-assistencia...). */
+
+/* Apelido novo que existe nos dois temas (chip lavanda de nicho/manual) */
+:root{ --chip-indigo-bg:var(--indigo-50); --brand-solid:var(--indigo-900); }
+
+:root[data-theme="dark"]{
+  color-scheme:dark;
+
+  /* Superfícies */
+  --surface-page:#0C1116;
+  --surface-card:#151B22;
+  --surface-raised:#1B222B;
+  --surface-sunken:#10151B;
+  --surface-subtle:#12181E;
+  --surface-hover:#1B222B;
+  --surface-active:#232B35;
+  --surface-selected:#0F2A4A;
+  --surface-inverse:#232B35;
+  --surface-nav:#120D33;
+  --surface-nav-hover:rgba(255,255,255,.08);
+  --surface-nav-active:rgba(1,169,223,.18);
+  --surface-overlay:rgba(0,0,0,.66);
+  --chip-indigo-bg:#251D5E;
+  --brand-solid:#2A1F74;   /* fundo sólido de marca (KPI destaque, botão ativo) com texto --text-on-brand */
+
+  /* Texto */
+  --text-body:#D5DCE5;
+  --text-heading:#F1F4F8;
+  --text-muted:#9AA6B5;
+  --text-subtle:#7C8896;
+  --text-disabled:#566170;
+  --text-on-brand:#FFFFFF;
+  --text-link:#6BA4E2;
+  --text-link-hover:#A2C6F0;
+  --text-brand:#6BA4E2;
+  --text-danger:#FF8A8A;
+  --text-success:#4FCB93;
+  --text-warning:#F0A83A;
+
+  /* Bordas */
+  --border-subtle:#1E2630;
+  --border-default:#2A3440;
+  --border-strong:#3B4756;
+  --border-field:#3B4756;
+  --border-field-hover:#566170;
+  --border-focus:#4CC8EC;
+  --border-danger:#E03131;
+
+  /* Ações */
+  --action-primary-bg:#1A74C4;
+  --action-primary-bg-hover:#3A88D2;
+  --action-primary-bg-active:#145EA8;
+  --action-primary-fg:#FFFFFF;
+  --action-secondary-bg:#1B222B;
+  --action-secondary-bg-hover:#232B35;
+  --action-secondary-bg-active:#2A3440;
+  --action-secondary-fg:#E3E8EE;
+  --action-secondary-border:#3B4756;
+  --action-ghost-bg-hover:#1F2731;
+  --action-ghost-fg:#C3CCD7;
+  --action-danger-bg:#C02626;
+  --action-danger-bg-hover:#E03131;
+  --action-danger-fg:#FFFFFF;
+  --action-disabled-bg:#1B222B;
+  --action-disabled-fg:#566170;
+  --action-disabled-border:#2A3440;
+
+  /* Feedback */
+  --feedback-info-bg:#0F2A4A;--feedback-info-border:#1B4472;--feedback-info-fg:#A2C6F0;
+  --feedback-success-bg:#0C2A1D;--feedback-success-border:#14513A;--feedback-success-fg:#6EDDA8;
+  --feedback-warning-bg:#33230B;--feedback-warning-border:#5C3F10;--feedback-warning-fg:#F5B95A;
+  --feedback-danger-bg:#341517;--feedback-danger-border:#6B2326;--feedback-danger-fg:#FF9A9A;
+
+  /* Pontes dos apps (index.css) que viram texto/série de gráfico */
+  --blue-dark:#B6AFE8;   /* ênfase/tinta: indigo-200 */
+  --blue-mid:#6BA4E2;    /* blue-300 */
+
+  /* Sombras e foco */
+  --shadow-xs:0 1px 2px rgba(0,0,0,.40);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.35);
+  --shadow-md:0 2px 4px rgba(0,0,0,.45),0 4px 12px rgba(0,0,0,.40);
+  --shadow-lg:0 8px 16px rgba(0,0,0,.50),0 16px 40px rgba(0,0,0,.50);
+  --shadow-inset:inset 0 1px 0 rgba(255,255,255,.04);
+  --shadow-focus:0 0 0 var(--focus-ring-w) rgba(76,200,236,.35);
+  --shadow-focus-danger:0 0 0 var(--focus-ring-w) rgba(255,138,138,.35);
+}
+:root[data-theme="dark"] :where(input,select,textarea){background-color:var(--surface-sunken);color:var(--text-body)}
+:root[data-theme="dark"] ::selection{background:#1B4472;color:#fff}
+
+/* Impressão sempre em claro */
+@media print{
+  :root[data-theme="dark"]{
+    color-scheme:light;
+    --surface-page:#fff;--surface-card:#fff;--surface-raised:#fff;--surface-sunken:#EAEEF2;--surface-subtle:#FAFBFC;--surface-hover:#F4F6F8;
+    --text-body:#262D36;--text-heading:#161C22;--text-muted:#4C5865;--text-subtle:#66727F;
+    --border-subtle:#EAEEF2;--border-default:#D8DEE6;--border-strong:#B9C3CE;--border-field:#B9C3CE;
+    --blue-dark:var(--indigo-900);--blue-mid:var(--blue-600);--chip-indigo-bg:var(--indigo-50);
+    --feedback-info-bg:var(--blue-50);--feedback-info-border:var(--blue-200);--feedback-info-fg:var(--blue-700);
+    --feedback-success-bg:var(--success-50);--feedback-success-border:var(--success-100);--feedback-success-fg:var(--success-700);
+    --feedback-warning-bg:var(--warning-50);--feedback-warning-border:var(--warning-100);--feedback-warning-fg:var(--warning-700);
+    --feedback-danger-bg:var(--danger-50);--feedback-danger-border:var(--danger-100);--feedback-danger-fg:var(--danger-700);
+    --text-danger:var(--danger-700);--text-success:var(--success-700);--text-warning:var(--warning-700);
+  }
+}

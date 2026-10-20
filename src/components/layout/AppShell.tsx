@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { Calendar } from 'lucide-react'
 import { Outlet, useLocation } from 'react-router'
 import Sidebar from './Sidebar'
+import { BotaoTema } from '../BotaoTema'
 import { periodoLabel } from '../../lib/query'
 import type { Periodo, PeriodoFixo } from '../../types'
 
@@ -75,7 +76,10 @@ export default function AppShell() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Top bar */}
           <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{title}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <BotaoTema />
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{title}</span>
+            </div>
             <div style={{ position: 'relative', display: 'flex', gap: 3, background: 'var(--surface-sunken)', padding: 3, borderRadius: 8 }}>
               {PERIODOS_FIXOS.map(p => (
                 <button key={p} onClick={() => setPeriodo(p)}

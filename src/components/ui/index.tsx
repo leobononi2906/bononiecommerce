@@ -15,8 +15,8 @@ interface KpiCardProps {
 export function KpiCard({ label, value, sub, trend, icon, highlight, liquido }: KpiCardProps) {
   return (
     <div style={{
-      background: highlight ? 'var(--blue-dark)' : 'var(--surface)',
-      border: `1px solid ${highlight ? 'var(--blue-dark)' : 'var(--border)'}`,
+      background: highlight ? 'var(--brand-solid)' : 'var(--surface)',
+      border: `1px solid ${highlight ? 'var(--brand-solid)' : 'var(--border)'}`,
       borderRadius: 'var(--radius-lg)',
       padding: '16px 18px',
       display: 'flex',
@@ -29,12 +29,12 @@ export function KpiCard({ label, value, sub, trend, icon, highlight, liquido }: 
           {label}
         </span>
       </div>
-      <span style={{ fontSize: 22, fontWeight: 600, color: highlight ? 'var(--surface-card)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
+      <span style={{ fontSize: 22, fontWeight: 600, color: highlight ? 'var(--text-on-brand)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
         {value}
       </span>
       {liquido && (
         <span style={{ fontSize: 12, color: highlight ? 'var(--blue-300)' : 'var(--text-muted)' }}>
-          líquido: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: highlight ? 'var(--surface-card)' : 'var(--text-primary)' }}>{liquido}</span>
+          líquido: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: highlight ? 'var(--text-on-brand)' : 'var(--text-primary)' }}>{liquido}</span>
         </span>
       )}
       {sub && (

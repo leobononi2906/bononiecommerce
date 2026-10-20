@@ -19,7 +19,7 @@ const campo: React.CSSProperties = {
 const rotulo: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }
 const botao: React.CSSProperties = {
   width: '100%', padding: '10px 12px', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)',
-  border: 'none', borderRadius: 8, background: 'var(--blue-dark)', color: '#fff', cursor: 'pointer',
+  border: 'none', borderRadius: 8, background: 'var(--action-primary-bg)', color: 'var(--action-primary-fg)', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
 }
 

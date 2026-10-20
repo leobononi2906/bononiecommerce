@@ -395,9 +395,9 @@ export default function Configuracoes() {
           {PERIODOS.map(p=>(
             <button key={p.value} onClick={()=>savePeriodo(p.value)} style={{
               padding:'8px 16px', borderRadius:'var(--radius)',
-              border:`1px solid ${periodoDefault===p.value?'var(--blue-dark)':'var(--border)'}`,
-              background:periodoDefault===p.value?'var(--blue-dark)':'transparent',
-              color:periodoDefault===p.value?'var(--surface-card)':'var(--text-muted)',
+              border:`1px solid ${periodoDefault===p.value?'var(--brand-solid)':'var(--border)'}`,
+              background:periodoDefault===p.value?'var(--brand-solid)':'transparent',
+              color:periodoDefault===p.value?'var(--text-on-brand)':'var(--text-muted)',
               fontSize:12, fontWeight:500, cursor:'pointer',
               fontFamily:'var(--font-sans)', transition:'all 0.15s',
             }}>{p.label}</button>

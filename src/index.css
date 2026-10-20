@@ -1,6 +1,7 @@
 /* Design system: Stonni interno (17/09/2026). Tokens verbatim em ds/stonni-ds.css — não editar
    cor/medida aqui, só a ponte de nomes que o app já usava. Ver docs/2026-09-17-design-system.md. */
 @import "./ds/stonni-ds.css";
+@import "./ds/stonni-dark.css";
 
 :root {
   /* Ponte: nomes antigos do app → tokens do DS. Nome que já existe IGUAL no DS (--text-muted,

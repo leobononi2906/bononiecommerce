@@ -562,14 +562,14 @@ export default function Parceiros() {
                     <span style={{background:st.bg,color:st.fg,fontSize:11,fontWeight:700,padding:'3px 9px',borderRadius:20,flexShrink:0,...font}}>{p.status}</span>
                   </div>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-                    {p.nicho_nome&&<span style={{background:'var(--indigo-50)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>{p.nicho_nome}</span>}
+                    {p.nicho_nome&&<span style={{background:'var(--chip-indigo-bg)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>{p.nicho_nome}</span>}
                     {p.seguidores&&<span style={{background:'var(--surface-sunken)',color:C.muted,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}><Users size={10}/> {p.seguidores.toLocaleString('pt-BR')}</span>}
                   </div>
                   {/* um chip por acordo — é o que deixa "Varejo 10% / Atacado 5%" visível sem abrir */}
                   {(p.acordos?.length??0)>0&&(
                     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
                       {p.acordos!.map(a=>(
-                        <span key={a.id} style={{background:'var(--indigo-50)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>
+                        <span key={a.id} style={{background:'var(--chip-indigo-bg)',color:C.blueDark,fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:20,...font}}>
                           {resumoAcordo(a)}
                         </span>
                       ))}

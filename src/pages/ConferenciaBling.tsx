@@ -43,7 +43,7 @@ function difPreco(it: Item) { const { preco } = envioDe(it); return preco == nul
 function difEstoque(it: Item) { const { est } = envioDe(it); return est == null || it.estBling == null ? null : est - it.estBling }
 function statusDe(it: Item) {
   if (!it.achou) return { bg: 'var(--surface-sunken)', fg: C.hint, txt: 'Sem par' }
-  if (!it.sincronizar) return { bg: 'var(--indigo-50)', fg: C.blueDark, txt: 'Manual' }
+  if (!it.sincronizar) return { bg: 'var(--chip-indigo-bg)', fg: C.blueDark, txt: 'Manual' }
   const p = mudaPreco(it), e = mudaEstoque(it)
   if (p && e) return { bg: C.redBg, fg: C.red, txt: 'Preço+Estoque' }
   if (p) return { bg: C.amberBg, fg: C.amber, txt: 'Preço difere' }
