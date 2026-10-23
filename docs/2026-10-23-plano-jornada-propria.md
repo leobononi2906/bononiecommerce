@@ -89,6 +89,7 @@ Calcular a etapa "nossa" dos últimos 30 dias com as regras acima, em SQL, e cru
 **Pronto quando:** o ensaio em produção (com rollback) preencher a jornada dos últimos 30 dias com os mesmos números da Fase 0.
 
 ### Fase 2 — Envio ao Meta (Edge Function; skill `publicar-edge-function`)
+**Estado em 23/10/2026: no ar em modo teste.** A `ecom-jornada-capi` foi publicada (download = repo; sem chave → 401 da própria função) e a migration `20261023130000` aplicada (destino em `ecom_jornada_controle`: PIXEL TINTIM, `TEST2302`, modo `teste`). Teste: 18 mudanças da carga devolvidas à fila (3 de cada evento) + as novas da rotina. **38 de 38 aceitas pelo Meta, sem aviso** (Purchase 3, ViewContent 3, SubmitApplication 3, InitiateCheckout 5, Contact 14, Lead 10). Ainda **sem cron**: é chamada à mão com `x-capi-key`. O agendamento precisa da chave no Vault.
 - Generalizar `meta_capi_eventos` para qualquer `event_name` vindo de `ecom_jornada_historico`, com `event_id = jornada-<id do histórico>` para o Meta deduplicar.
 - Payload no formato que o Meta aceita no PIXEL TINTIM: `action_source: 'chat'`, `user_data` com `ph` e `external_id` em SHA-256 (mais `ctwa_clid` quando houver), e `custom_data` com `currency/value` só na Compra.
 - Janela de 7 dias, teto por rodada e só 4xx vira erro: tudo isso já existe e se mantém.
@@ -107,6 +108,7 @@ Calcular a etapa "nossa" dos últimos 30 dias com as regras acima, em SQL, e cru
 Conversas aguardando 1ª resposta, tempo médio de 1ª resposta (com a opção de ignorar a saudação automática), % de conversas com anúncio identificado, funil por data do 1º contato e por data da venda, vendas e faturamento por campanha. Boa parte já existe nas telas de Leads e Campanhas.
 
 ### Fase 5 — Virada (combinada com o Kauan, num horário marcado)
+**Decisão de 23/10/2026: o Tintim não para por enquanto.** As duas ferramentas rodam juntas. A nossa fica com `meta_modo = 'teste'` (só Test Events, não conta conversão), e o Tintim segue mandando de verdade. Por isso não há evento duplicado.
 1. Rodar em paralelo, mandando só para o Test Events, por ~7 dias. Comparar o volume por evento com o do Tintim no Gerenciador de Eventos.
 2. No mesmo horário: o Kauan **tira o evento de cada etapa no Tintim** (campo "Evento de Conversão" vazio) e nós tiramos o `META_CAPI_TEST_CODE`.
 3. Acompanhar por 7 dias, no Gerenciador de Eventos do PIXEL TINTIM, os 16 conjuntos que usam a Compra: volume, qualidade da correspondência, avisos.

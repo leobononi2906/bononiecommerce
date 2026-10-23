@@ -1,4 +1,5 @@
--- 20261023130000_ecom_jornada_capi.sql — RASCUNHO PARA REVISÃO (não aplicada)
+-- 20261023130000_ecom_jornada_capi.sql
+-- aplicada em produção em 2026-10-23 (check novo, 2 colunas, 3 chaves em ecom_jornada_controle)
 --
 -- Por quê: Fase 2 da jornada própria. A Edge Function ecom-jornada-capi manda ao Meta (PIXEL TINTIM,
 -- action_source 'chat') as mudanças de etapa da ecom_jornada_historico e precisa gravar o resultado.
