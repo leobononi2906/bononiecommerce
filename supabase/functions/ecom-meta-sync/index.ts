@@ -90,19 +90,34 @@ Deno.serve(async (req) => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
 
-    const rows = registros.map((d: any) => ({
-      data: d.date_start,
-      campanha: d.campaign_name || 'N/A',
-      conjunto: d.adset_name || 'N/A',
-      impressoes: parseInt(d.impressions || '0'),
-      cliques: parseInt(d.clicks || '0'),
-      investimento: parseFloat(d.spend || '0'),
-      leads: parseInt(
-        d.actions?.find((a: any) =>
-          a.action_type === 'onsite_conversion.messaging_conversation_started_7d'
-        )?.value || 0,
-      ),
-    }))
+    // A chave da tabela é (data, campanha, conjunto), mas o Meta tem conjuntos diferentes com o
+    // MESMO nome dentro da mesma campanha (desde 18/10/2026: 32 → 62 linhas por dia). Duas linhas
+    // com a mesma chave no mesmo upsert derrubam a gravação inteira ("ON CONFLICT DO UPDATE command
+    // cannot affect row a second time") e o custo parou em 19/10. Soma os homônimos antes de gravar.
+    const porChave = new Map<string, any>()
+    for (const d of registros) {
+      const r = {
+        data: d.date_start,
+        campanha: d.campaign_name || 'N/A',
+        conjunto: d.adset_name || 'N/A',
+        impressoes: parseInt(d.impressions || '0'),
+        cliques: parseInt(d.clicks || '0'),
+        investimento: parseFloat(d.spend || '0'),
+        leads: parseInt(
+          d.actions?.find((a: any) =>
+            a.action_type === 'onsite_conversion.messaging_conversation_started_7d'
+          )?.value || 0,
+        ),
+      }
+      const k = `${r.data}|${r.campanha}|${r.conjunto}`
+      const ja = porChave.get(k)
+      if (!ja) { porChave.set(k, r); continue }
+      ja.impressoes += r.impressoes
+      ja.cliques += r.cliques
+      ja.investimento = Number((ja.investimento + r.investimento).toFixed(2))
+      ja.leads += r.leads
+    }
+    const rows = [...porChave.values()]
 
     const { error } = await supabase
       .from('ecom_meta_ads')
@@ -114,7 +129,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true, desde, ate, dias, paginas,
-      registros: rows.length, dias_gravados,
+      registros: rows.length, somados: registros.length - rows.length, dias_gravados,
       investimento_total: Number(rows.reduce((s, r) => s + r.investimento, 0).toFixed(2)),
       duration_ms: Date.now() - inicio,
     }), { status: 200, headers: { 'Content-Type': 'application/json' } })
