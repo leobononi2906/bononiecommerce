@@ -1,5 +1,8 @@
 -- 20261023120000_ecom_jornada.sql
 -- aplicada em produção em 2026-10-23 (7 etapas, 4 funções, RLS ligada nas 4 tabelas, anon sem acesso)
+-- ⚠ NÃO REAPLICAR: a migration 20261023140000_mkt_acesso (repo bononi-marketing) redefiniu
+--   ecom_jornada_pode_ler() para aceitar também o módulo 'marketing'. Rodar este arquivo de novo
+--   volta a função só para 'ecommerce' e tira o acesso do app Marketing.
 --
 -- Por quê: substituir a jornada do Tintim por uma própria (plano em docs/2026-10-23-plano-jornada-propria.md,
 -- Fase 1). A etapa de cada lead do WhatsApp do e-commerce passa a nascer do que já chega ao banco:
