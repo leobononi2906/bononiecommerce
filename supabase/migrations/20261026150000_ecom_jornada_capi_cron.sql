@@ -1,4 +1,5 @@
--- 20261026150000_ecom_jornada_capi_cron.sql — RASCUNHO PARA REVISÃO (não aplicada)
+-- 20261026150000_ecom_jornada_capi_cron.sql
+-- aplicada em produção em 2026-10-26 (cron job 171). 1ª rodada 12:05 UTC: modo teste, 200 de 200 aceitos.
 --
 -- Por quê: a ecom-jornada-capi (envio da jornada ao Meta, hoje em modo 'teste') só roda quando alguém
 -- chama à mão. Para rodar sozinha, o cron precisa mandar a chave x-capi-key, e ela não pode passar
