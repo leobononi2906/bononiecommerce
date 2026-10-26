@@ -11,7 +11,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 //   meta_modo        'teste' (só Test Events) | 'real' | 'desligado'
 // Secrets: META_CAPI_TOKEN (usuário do sistema "contato") e CAPI_CRON_KEY.
 //
-// Quem pode chamar: só com o header x-capi-key igual ao secret CAPI_CRON_KEY.
+// Quem pode chamar: só com o header x-capi-key igual ao secret CAPI_CRON_KEY ou à chave do cron
+// guardada no Vault (conferida por ecom_capi_chave_confere).
 // A URL é pública e o JWT do gateway (anon) não é segredo.
 // Status: pendente -> testado (modo teste) | enviado (modo real) | erro | expirado
 // ============================================================================
@@ -50,9 +51,15 @@ function primeiroNome(nome: string | null): string | null {
 
 Deno.serve(async (req) => {
   try {
-    if (CRON_KEY === '' || (req.headers.get('x-capi-key') ?? '') !== CRON_KEY) {
-      return json({ erro: 'não autorizado' }, 401)
+    // Duas chaves aceitas: a do secret CAPI_CRON_KEY (chamada à mão) e a do cron, que nasce e mora só
+    // no Vault (`capi_cron_key`) e é conferida no banco, sem ninguém precisar copiá-la.
+    const chave = req.headers.get('x-capi-key') ?? ''
+    let autorizado = CRON_KEY !== '' && chave === CRON_KEY
+    if (!autorizado && chave !== '') {
+      const { data: ok } = await sb.rpc('ecom_capi_chave_confere', { p_chave: chave })
+      autorizado = ok === true
     }
+    if (!autorizado) return json({ erro: 'não autorizado' }, 401)
     if (!CAPI_TOKEN) return json({ erro: 'configuração incompleta', faltando: ['META_CAPI_TOKEN'] }, 500)
 
     const { data: ctl, error: ctlErr } = await sb.from('ecom_jornada_controle').select('chave, valor')
