@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
 
 // Mesmo desenho dos apps com login do grupo (bononi-cobranca, bononi-exped):
 // a sessão é do Supabase Auth e o acesso vem de user_metadata, que o Hub grava.
@@ -64,6 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session) setSession(data.session)
     })
   }, [session, temAcesso])
+
+  // Sessão + módulo confirmados: liga o geral-central (botão Ajuda com a assistente de IA,
+  // pedido de melhoria, sino, avisos, senha). Uma vez por página. Ver public/ds/geral-central.js
+  // (cópia verbatim de bononi-hub/ds/), carregado pelo index.html.
+  const centralIniciado = useRef(false)
+  useEffect(() => {
+    const GC = (window as unknown as { GeralCentral?: { iniciar: (o: unknown) => void } }).GeralCentral
+    if (!session || !temAcesso || centralIniciado.current || !GC) return
+    centralIniciado.current = true
+    GC.iniciar({
+      appId: MODULO, url: SUPA_URL, key: SUPA_KEY, sb: supabase,
+      usuario: { email: session.user.email || '', nome: (meta.nome as string) || '' },
+    })
+  }, [session, temAcesso, meta.nome])
 
   const logout = async () => {
     await supabase.auth.signOut()

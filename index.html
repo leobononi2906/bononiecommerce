@@ -3,6 +3,9 @@
   <head>
     <!-- Portão do Hub: quem digita o endereço sem sessão vai pro Hub. Tem que ser o 1º script. -->
     <script src="/ds/geral-portao.js?v=1"></script>
+    <!-- Botão Ajuda (assistente de IA + pedido de melhoria), sino, avisos e senha: cópia verbatim do Hub.
+         Carrega o /ds/geral-ajuda.js sob demanda, da mesma pasta. O auth.tsx chama o iniciar. -->
+    <script src="/ds/geral-central.js?v=22"></script>
     <meta charset="UTF-8" />
     <meta name="theme-color" content="#16103d" />
     <!-- Tema claro/escuro/sistema: SÍNCRONO e antes do CSS (sem flash). Cópia do kit do Hub. -->
